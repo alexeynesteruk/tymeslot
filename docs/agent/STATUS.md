@@ -22,8 +22,8 @@ both remotes were fetched instead of creating a duplicate clone.
 - Approved implementation plan: complete in the website repository.
 - Public fork: created and verified.
 - Agent documents in this checkout: reconciled to the current six-service contract.
-- Stable service identity and versioned booking snapshots: implemented locally,
-  pending final review and full baseline gate.
+- Stable service identity, versioned booking snapshots, and owner-scoped direct
+  service provisioning: implemented locally and verified with focused suites.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -69,8 +69,9 @@ review. Do not start service-specific intake or activate production booking.
 - Concurrency, webhook, security, and browser gates have not run.
 - ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
 - Anna has not supplied all production booking and authorization values.
-- Anna's scheduler user ID is not approved, so the three direct event types
-  cannot be provisioned to an owner yet. Provisioning must be idempotent and
-  owner-scoped after the account exists.
+- Anna's scheduler user ID is not approved, so production provisioning remains
+  blocked. The local operation accepts an explicit owner ID only, provisions
+  exactly the three direct event types at catalog initial price/version 1, and
+  is idempotent and owner-scoped after the account exists.
 - Live Google, Stripe, SMTP, and webhook configuration is not complete.
 - Test-mode and manual acceptance have not passed.

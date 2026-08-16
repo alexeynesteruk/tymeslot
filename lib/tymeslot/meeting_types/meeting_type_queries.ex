@@ -4,7 +4,20 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeQueries do
   """
   import Ecto.Query, warn: false
   alias Tymeslot.MeetingTypes.MeetingTypeSchema
+  alias Tymeslot.Auth.UserSchema
   alias Tymeslot.Repo
+
+  @doc "Locks an owner row and verifies it exists for scoped provisioning."
+  @spec lock_owner(integer()) :: :ok | {:error, :owner_not_found}
+  def lock_owner(owner_id) when is_integer(owner_id) do
+    query =
+      from(user in UserSchema, where: user.id == ^owner_id, lock: "FOR UPDATE", select: user.id)
+
+    case Repo.one(query) do
+      nil -> {:error, :owner_not_found}
+      _id -> :ok
+    end
+  end
 
   @doc """
   Gets all active meeting types for a user, ordered by sort_order.
