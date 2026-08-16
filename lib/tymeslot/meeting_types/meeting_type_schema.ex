@@ -165,6 +165,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     |> validate_reminder_config()
     |> validate_payment_fields(opts)
     |> validate_service_fields()
+    |> reject_general_service_configuration_update(meeting_type)
     |> unique_constraint([:user_id, :name],
       message: "You already have a meeting type with this name"
     )
@@ -186,11 +187,14 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
         case Tymeslot.MyPawTrainer.ServiceCatalog.validate_id(service_id) do
           {:ok, id} ->
             if Tymeslot.MyPawTrainer.ServiceCatalog.direct_bookable?(id) do
+              service = Tymeslot.MyPawTrainer.ServiceCatalog.fetch!(id)
+
               changeset
               |> validate_required([:service_price_cents, :service_currency, :event_type_version])
               |> validate_number(:service_price_cents, greater_than: 0)
               |> validate_inclusion(:service_currency, ["usd"])
               |> validate_number(:event_type_version, greater_than: 0)
+              |> validate_service_duration(service.duration_minutes)
             else
               add_error(changeset, :service_id, "is not directly bookable")
             end
@@ -200,6 +204,37 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
         end
     end
   end
+
+  defp validate_service_duration(changeset, expected_duration) do
+    if get_field(changeset, :duration_minutes) == expected_duration do
+      changeset
+    else
+      add_error(changeset, :duration_minutes, "must match the code-owned service duration")
+    end
+  end
+
+  defp reject_general_service_configuration_update(changeset, %{id: id, service_id: service_id})
+       when not is_nil(id) and not is_nil(service_id) do
+    Enum.reduce(
+      [
+        :service_id,
+        :service_price_cents,
+        :service_currency,
+        :event_type_version,
+        :duration_minutes
+      ],
+      changeset,
+      fn field, result ->
+        if Map.has_key?(result.changes, field) do
+          add_error(result, field, "must be changed through the versioned service operation")
+        else
+          result
+        end
+      end
+    )
+  end
+
+  defp reject_general_service_configuration_update(changeset, _meeting_type), do: changeset
 
   defp reject_orphaned_service_fields(changeset) do
     if Enum.any?([:service_price_cents, :service_currency, :event_type_version], fn field ->

@@ -181,15 +181,18 @@ defmodule Tymeslot.Meetings.Scheduling do
   end
 
   defp add_service_snapshot(attrs, organizer_user_id) do
-    case MapKeys.get(attrs, :meeting_type_id) do
-      nil ->
+    case {MapKeys.get(attrs, :meeting_type_id), organizer_user_id} do
+      {nil, _organizer_user_id} ->
         {:ok, attrs}
 
-      meeting_type_id ->
+      {_meeting_type_id, owner_id} when not is_integer(owner_id) ->
+        {:ok, attrs}
+
+      {meeting_type_id, owner_id} ->
         with {:ok, snapshot} <-
                MeetingTypeQueries.get_service_for_update(
                  meeting_type_id,
-                 organizer_user_id,
+                 owner_id,
                  MapKeys.get(attrs, :duration)
                ) do
           {:ok, if(snapshot, do: Map.put(attrs, :service_snapshot, snapshot), else: attrs)}

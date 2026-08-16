@@ -38,8 +38,10 @@ enters Tymeslot.
 ## Intake and follow-up
 
 Discovery intake requires client name, email, and one main question, with dog
-name optional. Full online and in-home intake requires the approved structured
-client and dog fields. Phone and meeting-mode fields are absent.
+name optional. Full online and in-home intake requires client name, email, dog
+name, breed or mix, dog age, sex, spay or neuter status, origin, acquisition
+age, main concern, brief context, and desired result. Phone and meeting-mode
+fields are absent.
 
 Online and in-home consultations receive one private, single-use, 30-minute
 virtual follow-up link available from day 5 through day 10. `follow-up` is an

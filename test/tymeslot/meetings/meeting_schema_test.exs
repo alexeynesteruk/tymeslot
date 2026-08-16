@@ -78,6 +78,7 @@ defmodule Tymeslot.Meetings.MeetingSchemaTest do
 
     test "does not allow an existing snapshot to be changed" do
       meeting = %Meeting{
+        id: 42,
         service_snapshot: %{"service_id" => "online-consultation", "amount_cents" => 14_000}
       }
 
@@ -87,7 +88,19 @@ defmodule Tymeslot.Meetings.MeetingSchemaTest do
           Map.put(@valid_base_attrs, :service_snapshot, %{"amount_cents" => 19_000})
         )
 
-      assert Changeset.get_field(changeset, :service_snapshot) == meeting.service_snapshot
+      assert "cannot be changed after the meeting is stored" in errors_on(changeset).service_snapshot
+    end
+
+    test "does not allow a stored generic meeting to gain a service snapshot" do
+      meeting = %Meeting{id: 42, service_snapshot: %{}}
+
+      changeset =
+        Meeting.changeset(
+          meeting,
+          Map.put(@valid_base_attrs, :service_snapshot, %{"service_id" => "online-consultation"})
+        )
+
+      assert "cannot be changed after the meeting is stored" in errors_on(changeset).service_snapshot
     end
   end
 

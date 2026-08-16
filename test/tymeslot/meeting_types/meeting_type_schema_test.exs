@@ -330,6 +330,46 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchemaTest do
 
       assert "is required when service fields are present" in errors_on(changeset).service_id
     end
+
+    test "rejects a direct service with a non-catalog duration" do
+      user = insert(:user)
+
+      changeset =
+        MeetingTypeSchema.changeset(%MeetingTypeSchema{}, %{
+          name: "Wrong duration",
+          duration_minutes: 60,
+          user_id: user.id,
+          service_id: "online-consultation",
+          service_price_cents: 14_000,
+          service_currency: "usd",
+          event_type_version: 1
+        })
+
+      assert "must match the code-owned service duration" in errors_on(changeset).duration_minutes
+    end
+
+    test "rejects general edits to stored service configuration" do
+      event_type = %MeetingTypeSchema{
+        id: 42,
+        name: "Online behavior consultation",
+        duration_minutes: 90,
+        user_id: 7,
+        service_id: "online-consultation",
+        service_price_cents: 14_000,
+        service_currency: "usd",
+        event_type_version: 1
+      }
+
+      changeset =
+        MeetingTypeSchema.changeset(event_type, %{
+          service_price_cents: 15_000,
+          event_type_version: 2
+        })
+
+      assert "must be changed through the versioned service operation" in errors_on(changeset).service_price_cents
+
+      assert "must be changed through the versioned service operation" in errors_on(changeset).event_type_version
+    end
   end
 
   describe "versioned My Paw Trainer price updates" do

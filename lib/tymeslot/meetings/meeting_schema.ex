@@ -295,10 +295,9 @@ defmodule Tymeslot.Meetings.MeetingSchema do
   @doc false
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(meeting, attrs) do
-    attrs = reject_service_snapshot_update(meeting, attrs)
-
     meeting
     |> cast(attrs, @required_fields ++ @optional_fields)
+    |> reject_service_snapshot_update(meeting)
     |> validate_required(@required_fields)
     |> EmailChangeset.validate_email(:organizer_email)
     |> EmailChangeset.validate_email(:attendee_email)
@@ -327,14 +326,24 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     |> check_constraint(:end_time, name: :meetings_end_after_start)
   end
 
-  defp reject_service_snapshot_update(%__MODULE__{service_snapshot: snapshot}, attrs)
-       when is_map(snapshot) and map_size(snapshot) > 0 do
-    attrs
-    |> Map.delete(:service_snapshot)
-    |> Map.delete("service_snapshot")
+  defp reject_service_snapshot_update(changeset, %__MODULE__{id: id}) when not is_nil(id) do
+    if Map.has_key?(changeset.changes, :service_snapshot) do
+      add_error(changeset, :service_snapshot, "cannot be changed after the meeting is stored")
+    else
+      changeset
+    end
   end
 
-  defp reject_service_snapshot_update(_meeting, attrs), do: attrs
+  defp reject_service_snapshot_update(changeset, %__MODULE__{service_snapshot: snapshot})
+       when is_map(snapshot) and map_size(snapshot) > 0 do
+    if Map.has_key?(changeset.changes, :service_snapshot) do
+      add_error(changeset, :service_snapshot, "cannot be changed after it is set")
+    else
+      changeset
+    end
+  end
+
+  defp reject_service_snapshot_update(changeset, _meeting), do: changeset
 
   defp calculate_duration(changeset) do
     # Only calculate duration if not provided

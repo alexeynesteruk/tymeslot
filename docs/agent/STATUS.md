@@ -22,7 +22,8 @@ both remotes were fetched instead of creating a duplicate clone.
 - Approved implementation plan: complete in the website repository.
 - Public fork: created and verified.
 - Agent documents in this checkout: reconciled to the current six-service contract.
-- Stable service identity and versioned booking snapshots: implemented and verified.
+- Stable service identity and versioned booking snapshots: implemented locally,
+  pending final review and full baseline gate.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -52,13 +53,15 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. The full upstream baseline gate remains a
-separate checkpoint before broader scheduler implementation.
+17.11 with explicit Homebrew paths. The clean-database migration, focused
+tests, compilation with warnings as errors, and formatting checks pass. The
+remaining upstream baseline commands must pass before Task 3 application work
+begins.
 
 ## Next safe action
 
-Proceed to service-specific intake only after this task's signed commit is
-reviewed. Do not activate production booking.
+Run the complete upstream baseline gate and close the service-configuration
+review. Do not start service-specific intake or activate production booking.
 
 ## Production blockers
 
@@ -66,5 +69,8 @@ reviewed. Do not activate production booking.
 - Concurrency, webhook, security, and browser gates have not run.
 - ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
 - Anna has not supplied all production booking and authorization values.
+- Anna's scheduler user ID is not approved, so the three direct event types
+  cannot be provisioned to an owner yet. Provisioning must be idempotent and
+  owner-scoped after the account exists.
 - Live Google, Stripe, SMTP, and webhook configuration is not complete.
 - Test-mode and manual acceptance have not passed.
