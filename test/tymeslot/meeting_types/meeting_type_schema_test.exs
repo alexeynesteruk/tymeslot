@@ -270,4 +270,113 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchemaTest do
       assert "must be at least USD 0.50" in errors_on(changeset).price_cents
     end
   end
+
+  describe "My Paw Trainer service configuration" do
+    test "accepts a complete directly bookable service configuration" do
+      user = insert(:user)
+
+      changeset =
+        MeetingTypeSchema.changeset(%MeetingTypeSchema{}, %{
+          name: "Online behavior consultation",
+          duration_minutes: 90,
+          user_id: user.id,
+          service_id: "online-consultation",
+          service_price_cents: 14_000,
+          service_currency: "usd",
+          event_type_version: 1
+        })
+
+      assert changeset.valid?
+    end
+
+    test "rejects approval-only, unknown, incomplete, and non-USD configurations" do
+      user = insert(:user)
+      base = %{name: "Service", duration_minutes: 90, user_id: user.id}
+
+      approval =
+        MeetingTypeSchema.changeset(
+          %MeetingTypeSchema{},
+          Map.put(base, :service_id, "online-case-management")
+        )
+
+      unknown =
+        MeetingTypeSchema.changeset(%MeetingTypeSchema{}, Map.put(base, :service_id, "unknown"))
+
+      incomplete =
+        MeetingTypeSchema.changeset(
+          %MeetingTypeSchema{},
+          Map.merge(base, %{service_id: "online-consultation", service_currency: "eur"})
+        )
+
+      assert "is not directly bookable" in errors_on(approval).service_id
+      assert "is not a valid service" in errors_on(unknown).service_id
+      assert "can't be blank" in errors_on(incomplete).service_price_cents
+      assert "can't be blank" in errors_on(incomplete).event_type_version
+      assert "is invalid" in errors_on(incomplete).service_currency
+    end
+
+    test "rejects service configuration fields without a stable service ID" do
+      user = insert(:user)
+
+      changeset =
+        MeetingTypeSchema.changeset(%MeetingTypeSchema{}, %{
+          name: "Generic meeting",
+          duration_minutes: 30,
+          user_id: user.id,
+          service_price_cents: 4_900,
+          service_currency: "usd",
+          event_type_version: 1
+        })
+
+      assert "is required when service fields are present" in errors_on(changeset).service_id
+    end
+  end
+
+  describe "versioned My Paw Trainer price updates" do
+    alias Tymeslot.MeetingTypes.MeetingTypeQueries
+
+    test "owner may update a future price only at the expected version" do
+      user = insert(:user)
+
+      event_type =
+        insert(:meeting_type,
+          user: user,
+          name: "Online behavior consultation",
+          duration_minutes: 90,
+          service_id: "online-consultation",
+          service_price_cents: 14_000,
+          service_currency: "usd",
+          event_type_version: 1
+        )
+
+      assert {:ok, updated} =
+               MeetingTypeQueries.update_service_price(event_type.id, user.id, 1, 15_000)
+
+      assert updated.service_price_cents == 15_000
+      assert updated.event_type_version == 2
+
+      assert {:error, :stale_version} =
+               MeetingTypeQueries.update_service_price(event_type.id, user.id, 1, 16_000)
+    end
+
+    test "foreign owner and invalid price are rejected" do
+      owner = insert(:user)
+      foreign = insert(:user)
+
+      event_type =
+        insert(:meeting_type,
+          user: owner,
+          service_id: "discovery-call",
+          service_price_cents: 4_900,
+          service_currency: "usd",
+          event_type_version: 1
+        )
+
+      assert {:error, :not_found} =
+               MeetingTypeQueries.update_service_price(event_type.id, foreign.id, 1, 5_000)
+
+      assert {:error, :invalid_price} =
+               MeetingTypeQueries.update_service_price(event_type.id, owner.id, 1, 0)
+    end
+  end
 end

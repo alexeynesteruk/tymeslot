@@ -27,6 +27,10 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
           reminder_config: [map()],
           payment_required: boolean(),
           price_cents: integer() | nil,
+          service_id: String.t() | nil,
+          service_price_cents: integer() | nil,
+          service_currency: String.t() | nil,
+          event_type_version: pos_integer() | nil,
           is_archived: boolean(),
           max_bookings_per_day: pos_integer() | nil,
           max_bookings_per_week: pos_integer() | nil,
@@ -57,6 +61,10 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     field(:reminder_config, {:array, :map}, default: nil)
     field(:payment_required, :boolean, default: false)
     field(:price_cents, :integer)
+    field(:service_id, :string)
+    field(:service_price_cents, :integer)
+    field(:service_currency, :string)
+    field(:event_type_version, :integer)
     field(:is_archived, :boolean, default: false)
     field(:max_bookings_per_day, :integer)
     field(:max_bookings_per_week, :integer)
@@ -102,11 +110,11 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
   Because the host's payment context lives in a separate domain, callers
   pass it in via `opts`:
 
-    * `:host_charges_enabled` (default `false`) — whether the host's Stripe
+    * `:host_charges_enabled` (default `false`): whether the host's Stripe
       Connect account can accept charges.
-    * `:currency` (default `"usd"`) — the host's pricing currency, used only
+    * `:currency` (default `"usd"`): the host's pricing currency, used only
       to format the minimum-charge error message in major units.
-    * `:currency_minimum_cents` (default `50`) — minimum charge amount in
+    * `:currency_minimum_cents` (default `50`): minimum charge amount in
       cents for the host's currency. Callers should retrieve this via
       `Tymeslot.MeetingPayments.currency_minimum_cents/1`.
   """
@@ -132,6 +140,10 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
       :reminder_config,
       :payment_required,
       :price_cents,
+      :service_id,
+      :service_price_cents,
+      :service_currency,
+      :event_type_version,
       :is_archived,
       :max_bookings_per_day,
       :max_bookings_per_week,
@@ -152,6 +164,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     |> validate_calendar_destination()
     |> validate_reminder_config()
     |> validate_payment_fields(opts)
+    |> validate_service_fields()
     |> unique_constraint([:user_id, :name],
       message: "You already have a meeting type with this name"
     )
@@ -162,6 +175,40 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:video_integration_id)
     |> foreign_key_constraint(:calendar_integration_id)
+  end
+
+  defp validate_service_fields(changeset) do
+    case get_field(changeset, :service_id) do
+      nil ->
+        reject_orphaned_service_fields(changeset)
+
+      service_id ->
+        case Tymeslot.MyPawTrainer.ServiceCatalog.validate_id(service_id) do
+          {:ok, id} ->
+            if Tymeslot.MyPawTrainer.ServiceCatalog.direct_bookable?(id) do
+              changeset
+              |> validate_required([:service_price_cents, :service_currency, :event_type_version])
+              |> validate_number(:service_price_cents, greater_than: 0)
+              |> validate_inclusion(:service_currency, ["usd"])
+              |> validate_number(:event_type_version, greater_than: 0)
+            else
+              add_error(changeset, :service_id, "is not directly bookable")
+            end
+
+          {:error, _reason} ->
+            add_error(changeset, :service_id, "is not a valid service")
+        end
+    end
+  end
+
+  defp reject_orphaned_service_fields(changeset) do
+    if Enum.any?([:service_price_cents, :service_currency, :event_type_version], fn field ->
+         not is_nil(get_field(changeset, field))
+       end) do
+      add_error(changeset, :service_id, "is required when service fields are present")
+    else
+      changeset
+    end
   end
 
   @doc """
@@ -214,7 +261,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     end)
   end
 
-  # Only a newly supplied (non-nil) slug needs format checking — clearing it to
+  # Only a newly supplied (non-nil) slug needs format checking. Clearing it to
   # NULL or leaving it untouched is always valid.
   defp validate_slug(changeset) do
     case get_change(changeset, :slug) do

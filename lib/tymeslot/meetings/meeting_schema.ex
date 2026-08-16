@@ -65,6 +65,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
           last_notified_state: map(),
           custom_fields_snapshot: [map()],
           custom_field_answers: map(),
+          service_snapshot: map(),
           show_as_free: boolean(),
           attachments_snapshot: [map()],
           utm_source: String.t() | nil,
@@ -181,8 +182,9 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     # Custom booking fields
     field(:custom_fields_snapshot, {:array, :map}, default: [])
     field(:custom_field_answers, :map, default: %{})
+    field(:service_snapshot, :map, default: %{})
 
-    # Snapshot of the meeting type's show_as_free setting at booking time —
+    # Snapshot of the meeting type's show_as_free setting at booking time.
     # drives TRANSP/transparency on the calendar event written to the host.
     field(:show_as_free, :boolean, default: false)
 
@@ -267,6 +269,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     :last_notified_state,
     :custom_fields_snapshot,
     :custom_field_answers,
+    :service_snapshot,
     :show_as_free,
     :attachments_snapshot,
     :utm_source,
@@ -292,6 +295,8 @@ defmodule Tymeslot.Meetings.MeetingSchema do
   @doc false
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(meeting, attrs) do
+    attrs = reject_service_snapshot_update(meeting, attrs)
+
     meeting
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
@@ -321,6 +326,15 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     )
     |> check_constraint(:end_time, name: :meetings_end_after_start)
   end
+
+  defp reject_service_snapshot_update(%__MODULE__{service_snapshot: snapshot}, attrs)
+       when is_map(snapshot) and map_size(snapshot) > 0 do
+    attrs
+    |> Map.delete(:service_snapshot)
+    |> Map.delete("service_snapshot")
+  end
+
+  defp reject_service_snapshot_update(_meeting, attrs), do: attrs
 
   defp calculate_duration(changeset) do
     # Only calculate duration if not provided

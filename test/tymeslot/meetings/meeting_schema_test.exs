@@ -52,6 +52,100 @@ defmodule Tymeslot.Meetings.MeetingSchemaTest do
     end
   end
 
+  describe "service_snapshot" do
+    test "defaults to an empty map for existing generic meetings" do
+      changeset = Meeting.changeset(%Meeting{}, @valid_base_attrs)
+      assert Changeset.get_field(changeset, :service_snapshot) == %{}
+    end
+
+    test "persists a complete immutable booking-time snapshot" do
+      snapshot = %{
+        "service_id" => "online-consultation",
+        "service_name" => "Online behavior consultation",
+        "amount_cents" => 14_000,
+        "currency" => "usd",
+        "duration_minutes" => 90,
+        "delivery_mode" => "virtual",
+        "event_type_version" => 1
+      }
+
+      changeset =
+        Meeting.changeset(%Meeting{}, Map.put(@valid_base_attrs, :service_snapshot, snapshot))
+
+      assert changeset.valid?
+      assert Changeset.get_field(changeset, :service_snapshot) == snapshot
+    end
+
+    test "does not allow an existing snapshot to be changed" do
+      meeting = %Meeting{
+        service_snapshot: %{"service_id" => "online-consultation", "amount_cents" => 14_000}
+      }
+
+      changeset =
+        Meeting.changeset(
+          meeting,
+          Map.put(@valid_base_attrs, :service_snapshot, %{"amount_cents" => 19_000})
+        )
+
+      assert Changeset.get_field(changeset, :service_snapshot) == meeting.service_snapshot
+    end
+  end
+
+  describe "direct-service booking snapshot" do
+    alias Tymeslot.Meetings.Scheduling
+
+    test "a meeting retains price and version after its event type changes" do
+      owner = insert(:user)
+
+      event_type =
+        insert(:meeting_type,
+          user: owner,
+          name: "Online behavior consultation",
+          duration_minutes: 90,
+          service_id: "online-consultation",
+          service_price_cents: 14_000,
+          service_currency: "usd",
+          event_type_version: 1
+        )
+
+      attrs =
+        @valid_base_attrs
+        |> Map.merge(%{
+          uid: Ecto.UUID.generate(),
+          start_time: DateTime.add(DateTime.utc_now(), 2, :day) |> DateTime.truncate(:second),
+          end_time:
+            DateTime.add(DateTime.utc_now(), 2, :day)
+            |> DateTime.add(90, :minute)
+            |> DateTime.truncate(:second),
+          duration: 90,
+          organizer_user_id: owner.id,
+          meeting_type_id: event_type.id
+        })
+
+      assert {:ok, meeting} = Scheduling.create_meeting_with_conflict_check(attrs)
+
+      assert meeting.service_snapshot == %{
+               "service_id" => "online-consultation",
+               "service_name" => "Online behavior consultation",
+               "amount_cents" => 14_000,
+               "currency" => "usd",
+               "duration_minutes" => 90,
+               "delivery_mode" => "virtual",
+               "event_type_version" => 1
+             }
+
+      assert {:ok, _updated} =
+               Tymeslot.MeetingTypes.MeetingTypeQueries.update_service_price(
+                 event_type.id,
+                 owner.id,
+                 1,
+                 15_000
+               )
+
+      assert Repo.reload(meeting).service_snapshot == meeting.service_snapshot
+    end
+  end
+
   describe "provider_event_id" do
     test "accepts an id at Google's 1024-character maximum" do
       attrs = Map.put(@valid_base_attrs, :provider_event_id, String.duplicate("a", 1024))
