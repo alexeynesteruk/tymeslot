@@ -5,8 +5,10 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.UpdateHandlers do
   import Phoenix.LiveView, only: [connected?: 1]
 
   alias Tymeslot.CalendarGrid
+  alias Tymeslot.Timezones
   alias TymeslotWeb.Dashboard.CalendarGrid.DesktopReminderFeed
   alias TymeslotWeb.Dashboard.CalendarGrid.Helpers
+  alias TymeslotWeb.Dashboard.CalendarGrid.InitialState
 
   @spec handle_revert_event(map(), Phoenix.LiveView.Socket.t()) ::
           {:ok, Phoenix.LiveView.Socket.t()}
@@ -247,6 +249,7 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.UpdateHandlers do
 
           socket
           |> assign(:_initialized, true)
+          |> assign_initial_date()
           |> Helpers.load_integrations()
           |> Helpers.assign_view_from_preferences()
           |> Helpers.load_events()
@@ -254,6 +257,17 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.UpdateHandlers do
       end
 
     {:ok, assign_desktop_reminder_feed(socket)}
+  end
+
+  defp assign_initial_date(socket) do
+    timezone =
+      get_in(socket.assigns, [:profile, Access.key(:timezone)]) || Timezones.fallback()
+
+    assign(
+      socket,
+      :date,
+      InitialState.today_in_timezone(timezone, socket.assigns.current_time)
+    )
   end
 
   # Recomputes the upcoming desktop-reminder feed. Runs on the initial connect

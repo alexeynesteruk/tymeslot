@@ -8,7 +8,7 @@ Updated: 2026-08-16
 - Fork remote: `git@github.com:alexeynesteruk/tymeslot.git`
 - Upstream remote: `git@github.com:Tymeslot/tymeslot.git`
 - Branch: `feat/mpt-booking`
-- HEAD: `5c19a7510eaae9df8a7a6737133d9242e7a29b59`
+- Baseline repair started from: `414b19762b360b9ab4bc4bf660fccc7730ad1c04`
 - `origin/main`: `5c19a7510eaae9df8a7a6737133d9242e7a29b59`
 - `upstream/main`: `5c19a7510eaae9df8a7a6737133d9242e7a29b59`
 - Git SSH identity: `/Users/anesteruk/.ssh/mypawtrainer.com`
@@ -53,15 +53,18 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. The clean-database migration, focused
-tests, compilation with warnings as errors, and formatting checks pass. The
-remaining upstream baseline commands must pass before Task 3 application work
-begins.
+17.11 with explicit Homebrew paths. Date-boundary failures in the upstream
+calendar and scheduling tests are repaired: initial calendar dates now use the
+profile timezone, quick-add ranges advance dates across midnight, and the
+shared booking helper advances weekly calendars. The exact three formerly
+failing files pass 42 tests, the nearby regression set passes 41 tests,
+compilation with warnings as errors and formatting pass, and the complete gate
+passes 12,192 tests with 104 excluded.
 
 ## Next safe action
 
-Run the complete upstream baseline gate and close the service-configuration
-review. Do not start service-specific intake or activate production booking.
+Close the service-configuration review. Do not start service-specific intake
+or activate production booking.
 
 ## Production blockers
 

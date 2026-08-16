@@ -257,7 +257,7 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.EventsInteractionsTest do
       integration = insert(:calendar_integration, user: user, is_active: true)
       today = Date.utc_today()
 
-      # Start at 06:00 UTC = 09:00 AM Europe/Tallinn (the profile-factory default).
+      # Start at 06:00 UTC = 09:00 AM Europe/Tallinn.
       # The resize payload uses hour=12 in the user's local timezone; Shared.to_utc
       # converts 12:00 Tallinn (EEST, UTC+3) back to 09:00 UTC. The original end of
       # 07:00 UTC (= 10:00 AM Tallinn) becomes 09:00 UTC (= 12:00 PM Tallinn), so

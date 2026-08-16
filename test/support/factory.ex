@@ -18,7 +18,6 @@ defmodule Tymeslot.Factory do
   alias Tymeslot.Meetings.MeetingSchema
   alias Tymeslot.MeetingTypes.MeetingTypeSchema
   alias Tymeslot.Payments.PaymentTransactionSchema
-  alias Tymeslot.Profiles
   alias Tymeslot.Profiles.ProfileSchema
   alias Tymeslot.Security.Encryption
   alias Tymeslot.Security.Password
@@ -139,7 +138,10 @@ defmodule Tymeslot.Factory do
   @spec profile_factory() :: Tymeslot.Profiles.ProfileSchema.t()
   def profile_factory do
     %ProfileSchema{
-      timezone: Profiles.get_default_timezone(),
+      # Most test timestamps are constructed in UTC. Keep the generic profile
+      # aligned with them so date-boundary behavior is requested explicitly by
+      # the tests that exercise another timezone.
+      timezone: "Etc/UTC",
       buffer_minutes: 15,
       advance_booking_days: 90,
       min_advance_hours: 3,
