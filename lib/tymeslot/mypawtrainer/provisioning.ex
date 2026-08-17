@@ -31,21 +31,14 @@ defmodule Tymeslot.MyPawTrainer.Provisioning do
 
   defp provision_service(owner_id, service, existing) do
     case Enum.find(existing, &(&1.service_id == service.id and &1.is_active)) do
-      %MeetingTypeSchema{} = meeting_type ->
-        if matches_initial_configuration?(meeting_type, service) do
-          meeting_type
-        else
-          Repo.rollback(:invalid_existing_service_configuration)
-        end
+      %MeetingTypeSchema{} ->
+        Repo.rollback(:active_existing_service)
 
       nil ->
         case Enum.find(existing, &(&1.service_id == service.id)) do
           %MeetingTypeSchema{} = meeting_type ->
             if matches_initial_configuration?(meeting_type, service) do
-              case MeetingTypeQueries.toggle_meeting_type_status(meeting_type, %{is_active: true}) do
-                {:ok, activated} -> activated
-                {:error, changeset} -> Repo.rollback(changeset)
-              end
+              meeting_type
             else
               Repo.rollback(:invalid_existing_service_configuration)
             end
@@ -57,7 +50,7 @@ defmodule Tymeslot.MyPawTrainer.Provisioning do
               description: service.name,
               duration_minutes: service.duration_minutes,
               icon: "hero-clock",
-              is_active: true,
+              is_active: false,
               is_private: false,
               slug: service.route,
               allow_video: false,
