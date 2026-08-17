@@ -19,7 +19,14 @@ defmodule TymeslotWeb.Live.Scheduling.BookingConfig do
 
   @doc """
   Returns the booking field spec for use with `InputProcessor.validate_form/2`.
+
+  My Paw Trainer direct services use this same name, email, and optional
+  message spec. Phone and meeting-mode are not collected; delivery is
+  determined by the selected service.
   """
   @spec booking_field_spec() :: [field_spec_entry()]
   def booking_field_spec, do: @booking_field_spec
+
+  @spec booking_field_spec(term()) :: [field_spec_entry()]
+  def booking_field_spec(_service_id), do: booking_field_spec()
 end

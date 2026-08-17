@@ -65,6 +65,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
           last_notified_state: map(),
           custom_fields_snapshot: [map()],
           custom_field_answers: map(),
+          service_snapshot: map(),
           show_as_free: boolean(),
           attachments_snapshot: [map()],
           utm_source: String.t() | nil,
@@ -181,8 +182,9 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     # Custom booking fields
     field(:custom_fields_snapshot, {:array, :map}, default: [])
     field(:custom_field_answers, :map, default: %{})
+    field(:service_snapshot, :map, default: %{})
 
-    # Snapshot of the meeting type's show_as_free setting at booking time —
+    # Snapshot of the meeting type's show_as_free setting at booking time.
     # drives TRANSP/transparency on the calendar event written to the host.
     field(:show_as_free, :boolean, default: false)
 
@@ -267,6 +269,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     :last_notified_state,
     :custom_fields_snapshot,
     :custom_field_answers,
+    :service_snapshot,
     :show_as_free,
     :attachments_snapshot,
     :utm_source,
@@ -294,6 +297,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
   def changeset(meeting, attrs) do
     meeting
     |> cast(attrs, @required_fields ++ @optional_fields)
+    |> reject_service_snapshot_update(meeting)
     |> validate_required(@required_fields)
     |> EmailChangeset.validate_email(:organizer_email)
     |> EmailChangeset.validate_email(:attendee_email)
@@ -321,6 +325,25 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     )
     |> check_constraint(:end_time, name: :meetings_end_after_start)
   end
+
+  defp reject_service_snapshot_update(changeset, %__MODULE__{id: id}) when not is_nil(id) do
+    if Map.has_key?(changeset.changes, :service_snapshot) do
+      add_error(changeset, :service_snapshot, "cannot be changed after the meeting is stored")
+    else
+      changeset
+    end
+  end
+
+  defp reject_service_snapshot_update(changeset, %__MODULE__{service_snapshot: snapshot})
+       when is_map(snapshot) and map_size(snapshot) > 0 do
+    if Map.has_key?(changeset.changes, :service_snapshot) do
+      add_error(changeset, :service_snapshot, "cannot be changed after it is set")
+    else
+      changeset
+    end
+  end
+
+  defp reject_service_snapshot_update(changeset, _meeting), do: changeset
 
   defp calculate_duration(changeset) do
     # Only calculate duration if not provided

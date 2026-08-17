@@ -89,6 +89,18 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Engine do
   def validate_all(%__MODULE__{definitions: defs, answers: ans}),
     do: CustomFields.validate_answers(defs, ans)
 
+  @spec put_errors(t(), %{String.t() => String.t()}) :: t()
+  def put_errors(%__MODULE__{} = s, errors) when is_map(errors) do
+    first_index =
+      s.definitions
+      |> Enum.with_index()
+      |> Enum.find_value(fn {definition, index} ->
+        if Map.has_key?(errors, definition["id"]), do: index
+      end)
+
+    %{s | errors: errors, current_index: first_index || s.current_index}
+  end
+
   defp validate_current(%__MODULE__{} = s) do
     case current_definition(s) do
       nil -> {:error, "No question to validate"}

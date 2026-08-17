@@ -246,7 +246,8 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
     socket.assigns[:organizer_user_id] &&
       socket.assigns[:organizer_profile] &&
       socket.assigns[:current_year] &&
-      socket.assigns[:current_month]
+      socket.assigns[:current_month] &&
+      socket.assigns[:service_area_status] in [nil, :ok]
   end
 
   @doc """

@@ -11,6 +11,7 @@ defmodule TymeslotWeb.Dashboard.ComponentDispatchTest do
   alias TymeslotWeb.Dashboard.ComponentDispatch
   alias TymeslotWeb.Dashboard.DashboardOverviewComponent
   alias TymeslotWeb.Dashboard.ProfileSettingsComponent
+  alias TymeslotWeb.Dashboard.Mypawtrainer.ZipAllowlistComponent
   alias TymeslotWeb.Dashboard.ScheduleSettingsComponent
   alias TymeslotWeb.Dashboard.ServiceSettingsComponent
   alias TymeslotWeb.Dashboard.ThemeSettingsComponent
@@ -29,6 +30,7 @@ defmodule TymeslotWeb.Dashboard.ComponentDispatchTest do
       {:overview, DashboardOverviewComponent},
       {:settings, ProfileSettingsComponent},
       {:availability, ScheduleSettingsComponent},
+      {:service_area, ZipAllowlistComponent},
       {:meeting_settings, ServiceSettingsComponent},
       {:calendar, CalendarGridComponent},
       {:calendar_integration, CalendarSettingsComponent},

@@ -35,7 +35,11 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
       use TymeslotWeb, :live_view
       require Logger
 
-      alias TymeslotWeb.Live.Scheduling.{CalendarHelpers, OrganizerHelpers}
+      alias TymeslotWeb.Live.Scheduling.{
+        AvailabilityHelpers,
+        CalendarHelpers,
+        OrganizerHelpers
+      }
 
       alias TymeslotWeb.Live.Scheduling.Handlers.TimezoneHandlerComponent
 
@@ -52,7 +56,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
 
       alias TymeslotWeb.Themes.Shared.StateMachineHelpers, as: StateMachine
 
-      alias Tymeslot.CustomFields
+      alias Tymeslot.MyPawTrainer.Intake
 
       alias TymeslotWeb.Themes.Shared.Components.ErrorComponent
       alias TymeslotWeb.Themes.Shared.CustomQuestions.Engine, as: QEngine
@@ -206,6 +210,9 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
           event in [:back_step, :next_step] ->
             handle_schedule_navigation_events(socket, event)
 
+          event == :submit_zip ->
+            handle_submit_zip(socket, data)
+
           true ->
             handle_theme_schedule_event(socket, event, data)
         end
@@ -254,11 +261,33 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
             end
 
           :next_step ->
-            # Route to :questions when the meeting type has custom fields, else :booking.
-            states = StateMachine.states_for(socket.assigns[:meeting_type] || %{})
-            next = get_in(states, [:schedule, :next]) || :booking
-            handle_state_transition(socket, :schedule, next)
+            if socket.assigns[:service_area_status] in [nil, :ok] do
+              # Route to :questions when the meeting type has custom fields, else :booking.
+              states = StateMachine.states_for(socket.assigns[:meeting_type] || %{})
+              next = get_in(states, [:schedule, :next]) || :booking
+              handle_state_transition(socket, :schedule, next)
+            else
+              {:noreply, socket}
+            end
         end
+      end
+
+      defp handle_submit_zip(socket, zip) do
+        socket =
+          socket
+          |> LiveHelpers.assign_service_area(%{"zip" => zip})
+          |> assign(:available_slots, [])
+          |> assign(:selected_date, nil)
+          |> assign(:selected_time, nil)
+
+        socket =
+          if AvailabilityHelpers.can_fetch_availability?(socket) do
+            AvailabilityHelpers.fetch_month_availability_async(socket)
+          else
+            socket
+          end
+
+        {:noreply, socket}
       end
 
       defp handle_booking_events(socket, event, data) do
@@ -338,15 +367,15 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
               end
 
             engine.current_index == last_index ->
-              case QEngine.validate_all(engine) do
+              case Intake.validate_wizard_answers(
+                     socket.assigns[:meeting_type] || %{},
+                     engine.answers
+                   ) do
                 {:ok, _answers} ->
                   {:noreply, transition_to(socket, :booking, %{})}
 
-                {:error, _errors} ->
-                  case QEngine.next(engine) do
-                    {:ok, engine} -> {:noreply, assign(socket, :engine, engine)}
-                    {:error, engine} -> {:noreply, assign(socket, :engine, engine)}
-                  end
+                {:error, errors} ->
+                  {:noreply, assign(socket, :engine, QEngine.put_errors(engine, errors))}
               end
 
             true ->
@@ -401,7 +430,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
         # reflects the latest custom field definitions for this meeting type. Only
         # re-init when definitions actually changed so back-navigation preserves answers.
         meeting_type = socket.assigns[:meeting_type] || %{}
-        defs = CustomFields.snapshot_for(meeting_type)
+        defs = Intake.definitions_for_meeting_type(meeting_type)
 
         engine =
           if defs != socket.assigns.engine.definitions,

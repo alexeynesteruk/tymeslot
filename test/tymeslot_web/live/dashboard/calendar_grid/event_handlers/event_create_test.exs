@@ -216,6 +216,30 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.EventHandlers.EventCreateTest do
     end
   end
 
+  describe "default_timed_range/1" do
+    test "advances the end date when the one-hour range crosses midnight" do
+      assert CreateFormState.default_timed_range(~U[2026-08-16 22:30:00Z]) == %{
+               date: "2026-08-16",
+               end_date: "2026-08-17",
+               start_hour: 23,
+               start_minute: 0,
+               end_hour: 0,
+               end_minute: 0
+             }
+    end
+
+    test "advances both dates when the next whole hour is tomorrow" do
+      assert CreateFormState.default_timed_range(~U[2026-08-16 23:30:00Z]) == %{
+               date: "2026-08-17",
+               end_date: "2026-08-17",
+               start_hour: 0,
+               start_minute: 0,
+               end_hour: 1,
+               end_minute: 0
+             }
+    end
+  end
+
   # Helpers
 
   defp build_result(integration, opts) do

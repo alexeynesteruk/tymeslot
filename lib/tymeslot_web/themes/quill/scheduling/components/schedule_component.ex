@@ -93,6 +93,12 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Components.ScheduleComponent do
     {:noreply, socket}
   end
 
+  @impl Phoenix.LiveComponent
+  def handle_event("submit_zip", %{"zip" => zip}, socket) do
+    send(self(), {:step_event, :schedule, :submit_zip, zip})
+    {:noreply, socket}
+  end
+
   # ========== CALENDAR COMPONENTS ==========
 
   attr :day, :map, required: true
@@ -209,7 +215,42 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Components.ScheduleComponent do
                     </div>
                   </div>
 
-                  <div class="calendar-slots-container">
+                  <div
+                    :if={@service_area_status not in [nil, :ok]}
+                    class="service-area-gate"
+                    data-testid="service-area-gate"
+                    data-service-area-status={@service_area_status}
+                  >
+                    <p :if={@service_area_status == :zip_required} class="schedule-advance-notice">
+                      {dgettext("booking", "Enter your ZIP code to see in-home times.")}
+                    </p>
+                    <p
+                      :if={@service_area_status == :service_area_unavailable}
+                      class="schedule-advance-notice"
+                      data-testid="service-area-unavailable"
+                    >
+                      {dgettext("booking", "This ZIP is outside the current in-home service area.")}
+                    </p>
+                    <form phx-submit="submit_zip" phx-target={@myself} class="mt-4">
+                      <label for="service-area-zip" class="sr-only">
+                        {dgettext("booking", "ZIP code")}
+                      </label>
+                      <input
+                        id="service-area-zip"
+                        name="zip"
+                        value={@service_area_zip}
+                        inputmode="numeric"
+                        autocomplete="postal-code"
+                        maxlength="10"
+                        class="rounded-xl border-2 border-white/30 bg-white/10 px-4 py-3 text-white"
+                      />
+                      <button type="submit" class="mt-3 btn-primary">
+                        {dgettext("booking", "Check ZIP")}
+                      </button>
+                    </form>
+                  </div>
+
+                  <div :if={@service_area_status in [nil, :ok]} class="calendar-slots-container">
                     <div class="flex-1 calendar-section">
                       <%!-- Weekly view: shown on small screens --%>
                       <div class="calendar-weekly">

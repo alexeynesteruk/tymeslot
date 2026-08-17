@@ -36,20 +36,33 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.EventHandlers.CreateFormState do
   # next whole hour from "now" in the user's timezone, for a one-hour slot.
   def handle_show_create_form(_params, socket) do
     now = DateTime.shift_zone!(DateTime.utc_now(), socket.assigns.user_timezone)
-    start_hour = if now.minute == 0, do: now.hour, else: rem(now.hour + 1, 24)
-    today = Date.to_iso8601(DateTime.to_date(now))
 
     creating =
-      base_creating(socket, %{
-        date: today,
-        end_date: today,
-        start_hour: start_hour,
-        start_minute: 0,
-        end_hour: rem(start_hour + 1, 24),
-        end_minute: 0
-      })
+      base_creating(socket, default_timed_range(now))
 
     {:noreply, assign(socket, :creating_event, creating)}
+  end
+
+  @doc "Builds the next whole-hour, one-hour range for a quick-add draft."
+  @spec default_timed_range(DateTime.t()) :: map()
+  def default_timed_range(%DateTime{} = now) do
+    hour_offset = if now.minute == 0, do: 0, else: 1
+
+    start_at =
+      now
+      |> DateTime.add(hour_offset * 60 * 60, :second)
+      |> Map.merge(%{minute: 0, second: 0, microsecond: {0, 0}})
+
+    end_at = DateTime.add(start_at, 60 * 60, :second)
+
+    %{
+      date: start_at |> DateTime.to_date() |> Date.to_iso8601(),
+      end_date: end_at |> DateTime.to_date() |> Date.to_iso8601(),
+      start_hour: start_at.hour,
+      start_minute: 0,
+      end_hour: end_at.hour,
+      end_minute: 0
+    }
   end
 
   # Builds a `creating_event` map, filling defaults for any field the caller omits.

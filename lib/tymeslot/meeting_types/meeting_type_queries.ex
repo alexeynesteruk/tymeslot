@@ -4,7 +4,20 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeQueries do
   """
   import Ecto.Query, warn: false
   alias Tymeslot.MeetingTypes.MeetingTypeSchema
+  alias Tymeslot.Auth.UserSchema
   alias Tymeslot.Repo
+
+  @doc "Locks an owner row and verifies it exists for scoped provisioning."
+  @spec lock_owner(integer()) :: :ok | {:error, :owner_not_found}
+  def lock_owner(owner_id) when is_integer(owner_id) do
+    query =
+      from(user in UserSchema, where: user.id == ^owner_id, lock: "FOR UPDATE", select: user.id)
+
+    case Repo.one(query) do
+      nil -> {:error, :owner_not_found}
+      _id -> :ok
+    end
+  end
 
   @doc """
   Gets all active meeting types for a user, ordered by sort_order.
@@ -110,6 +123,110 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeQueries do
   end
 
   @doc """
+  Locks and validates an active owner-scoped direct-service event type.
+
+  Generic meeting types return `{:ok, nil}`. A My Paw Trainer event must match
+  the code-owned duration and have a complete positive USD configuration.
+  """
+  @spec get_service_for_update(integer(), integer(), integer()) ::
+          {:ok, map() | nil} | {:error, atom()}
+  def get_service_for_update(id, user_id, requested_duration)
+      when is_integer(id) and is_integer(user_id) and is_integer(requested_duration) do
+    query =
+      from(mt in MeetingTypeSchema,
+        where: mt.id == ^id and mt.user_id == ^user_id and mt.is_active == true,
+        lock: "FOR UPDATE"
+      )
+
+    case Repo.one(query) do
+      nil ->
+        {:error, :meeting_type_not_found}
+
+      %{service_id: nil} ->
+        {:ok, nil}
+
+      meeting_type ->
+        validate_service_configuration(meeting_type, requested_duration)
+    end
+  end
+
+  @doc """
+  Changes only a future direct-service price using owner and version checks.
+
+  Outbox publication is added in the price-projection task. Until then this
+  function is the sole domain mutation for a direct-service price.
+  """
+  @spec update_service_price(integer(), integer(), pos_integer(), pos_integer()) ::
+          {:ok, MeetingTypeSchema.t()} | {:error, atom() | Ecto.Changeset.t()}
+  def update_service_price(id, user_id, expected_version, price_cents)
+      when is_integer(id) and is_integer(user_id) and is_integer(expected_version) and
+             is_integer(price_cents) do
+    Repo.transaction(fn ->
+      query =
+        from(mt in MeetingTypeSchema,
+          where: mt.id == ^id and mt.user_id == ^user_id and mt.is_active == true,
+          lock: "FOR UPDATE"
+        )
+
+      with %MeetingTypeSchema{} = meeting_type <- Repo.one(query),
+           :ok <- validate_service_price_update(meeting_type, expected_version, price_cents),
+           {:ok, updated} <-
+             meeting_type
+             |> Ecto.Changeset.change(
+               service_price_cents: price_cents,
+               event_type_version: expected_version + 1
+             )
+             |> Repo.update() do
+        updated
+      else
+        nil -> Repo.rollback(:not_found)
+        {:error, reason} when is_atom(reason) -> Repo.rollback(reason)
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  def update_service_price(_id, _user_id, _expected_version, _price_cents),
+    do: {:error, :invalid_request}
+
+  defp validate_service_price_update(meeting_type, expected_version, price_cents) do
+    cond do
+      not Tymeslot.MyPawTrainer.ServiceCatalog.direct_bookable?(meeting_type.service_id) ->
+        {:error, :not_direct_service}
+
+      meeting_type.event_type_version != expected_version ->
+        {:error, :stale_version}
+
+      price_cents <= 0 ->
+        {:error, :invalid_price}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_service_configuration(meeting_type, requested_duration) do
+    try do
+      service = Tymeslot.MyPawTrainer.ServiceCatalog.fetch!(meeting_type.service_id)
+
+      if service.direct_bookable and service.duration_minutes == meeting_type.duration_minutes and
+           service.duration_minutes == requested_duration do
+        {:ok,
+         Tymeslot.MyPawTrainer.ServiceCatalog.snapshot(%{
+           service_id: meeting_type.service_id,
+           price_cents: meeting_type.service_price_cents,
+           currency: meeting_type.service_currency,
+           version: meeting_type.event_type_version
+         })}
+      else
+        {:error, :invalid_service_configuration}
+      end
+    rescue
+      ArgumentError -> {:error, :invalid_service_configuration}
+    end
+  end
+
+  @doc """
   Toggles the active status of a meeting type.
   Uses a simplified changeset that doesn't validate video integration requirements.
   """
@@ -187,7 +304,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeQueries do
   @doc """
   Resets `payment_required` and `price_cents` on every meeting type owned
   by the given user. Used when the host changes their Stripe Connect
-  default currency — paid prices recorded in the old currency must not
+  default currency. Paid prices recorded in the old currency must not
   silently re-bill at the new one.
   """
   @spec clear_payments_for_user(integer()) :: {non_neg_integer(), nil}

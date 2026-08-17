@@ -255,6 +255,7 @@ defmodule TymeslotWeb.Router do
       live "/dashboard/overview", DashboardLive, :overview
       live "/dashboard/settings", DashboardLive, :settings
       live "/dashboard/availability", DashboardLive, :availability
+      live "/dashboard/service-area", DashboardLive, :service_area
       live "/dashboard/account", AccountLive
       live "/dashboard/meeting-settings", DashboardLive, :meeting_settings
       live "/dashboard/calendar", DashboardLive, :calendar

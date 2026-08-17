@@ -163,6 +163,15 @@ defmodule TymeslotWeb.Components.DashboardSidebar do
               </.nav_link>
 
               <.nav_link
+                patch={~p"/dashboard/service-area"}
+                current={@current_action}
+                action={:service_area}
+              >
+                <.icon name="hero-map-pin" class="w-5 h-5" />
+                <span>{dgettext("dashboard_common", "Service Area")}</span>
+              </.nav_link>
+
+              <.nav_link
                 patch={~p"/dashboard/theme"}
                 current={
                   if @current_action == :theme_customization, do: :theme, else: @current_action

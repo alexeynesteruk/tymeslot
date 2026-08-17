@@ -4,6 +4,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.EngineTest do
   @moduletag :custom_fields
 
   alias Ecto.UUID
+  alias Tymeslot.MyPawTrainer.Intake
   alias TymeslotWeb.Themes.Shared.CustomQuestions.Engine
 
   defp build_def(type, attrs \\ %{}) do
@@ -150,5 +151,47 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.EngineTest do
   test "skipped? is false for a non-empty engine (guard does not fire prematurely)" do
     non_empty = Engine.init([build_def("short_text")])
     refute Engine.skipped?(non_empty)
+  end
+
+  test "validate_all/1 accepts unknown ages on the consultation question snapshot" do
+    snapshot = Intake.question_snapshot_for("online-consultation")
+
+    answers = %{
+      "dog_name" => "Milo",
+      "breed_or_mix" => "unknown",
+      "dog_age" => "unknown",
+      "dog_sex" => "male",
+      "spay_neuter_status" => "yes",
+      "origin" => "rescue_shelter",
+      "acquisition_age" => "unknown",
+      "main_concern" => "Pulling on leash",
+      "brief_context" => "Walks have become hard",
+      "desired_result" => "Calmer walks"
+    }
+
+    engine =
+      Enum.reduce(answers, Engine.init(snapshot), fn {id, value}, acc ->
+        Engine.answer(acc, id, value)
+      end)
+
+    assert {:ok, normalized} = Engine.validate_all(engine)
+    assert normalized["dog_age"] == "unknown"
+    assert normalized["acquisition_age"] == "unknown"
+  end
+
+  test "put_errors/2 stores field errors and jumps to the first invalid question" do
+    snapshot = Intake.question_snapshot_for("online-consultation")
+    last_index = length(snapshot) - 1
+
+    engine = %{Engine.init(snapshot) | current_index: last_index}
+
+    updated =
+      Engine.put_errors(engine, %{
+        "dog_age_unit" => "Choose weeks, months, or years"
+      })
+
+    assert updated.errors["dog_age_unit"] == "Choose weeks, months, or years"
+    assert Enum.at(updated.definitions, updated.current_index)["id"] == "dog_age_unit"
+    refute updated.current_index == last_index
   end
 end

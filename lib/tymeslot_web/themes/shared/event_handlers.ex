@@ -72,6 +72,7 @@ defmodule TymeslotWeb.Themes.Shared.EventHandlers do
           |> assign(:selected_duration, data)
           |> assign(:duration, data)
           |> callbacks.maybe_assign_meeting_type.(data)
+          |> TymeslotWeb.Themes.Shared.LiveHelpers.assign_service_area(%{})
           # Trigger availability refresh when duration changes
           |> AvailabilityHelpers.fetch_month_availability_async()
 

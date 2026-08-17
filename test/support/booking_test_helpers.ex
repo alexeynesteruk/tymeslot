@@ -72,14 +72,24 @@ defmodule Tymeslot.BookingTestHelpers do
     target_date = Date.add(today, 1)
     date_str = Date.to_string(target_date)
 
-    # Navigate to next month if tomorrow falls outside the currently displayed month
-    if target_date.month != today.month || target_date.year != today.year do
-      view |> element("button[phx-click='next_month']") |> render_click()
+    target_selector = "#{@calendar_day}[phx-value-date='#{date_str}']:not([disabled])"
+
+    # Rhythm renders one week at a time. If tomorrow is outside that strip,
+    # advance it before waiting. Quill also exposes a weekly mobile calendar,
+    # so the same path covers its month-boundary case.
+    unless has_element?(view, target_selector) do
+      if has_element?(view, "button[phx-click='next_week']:not([disabled])") do
+        view
+        |> element("button[phx-click='next_week']:not([disabled])")
+        |> render_click()
+      else
+        view
+        |> element("button[phx-click='next_month']:not([disabled])")
+        |> render_click()
+      end
     end
 
-    wait_until(fn ->
-      has_element?(view, "#{@calendar_day}[phx-value-date='#{date_str}']:not([disabled])")
-    end)
+    wait_until(fn -> has_element?(view, target_selector) end)
 
     view |> element("#{@calendar_day}[phx-value-date='#{date_str}']") |> render_click()
 

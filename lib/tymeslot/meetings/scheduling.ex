@@ -18,6 +18,7 @@ defmodule Tymeslot.Meetings.Scheduling do
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.Meetings.MeetingSchema, as: Meeting
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MeetingTypes.MeetingTypeQueries
   alias Tymeslot.Profiles
   alias Tymeslot.Repo
   alias Tymeslot.Utils.MapKeys
@@ -64,13 +65,14 @@ defmodule Tymeslot.Meetings.Scheduling do
         )
 
       execute_conflict_checked_transaction(
+        attrs,
         start_time,
         end_time,
         organizer_user_id,
         MapKeys.get(attrs, :meeting_type_id),
         limit_check,
-        fn ->
-          create_meeting_in_transaction(attrs)
+        fn locked_attrs ->
+          create_meeting_in_transaction(locked_attrs)
         end
       )
     else
@@ -144,6 +146,7 @@ defmodule Tymeslot.Meetings.Scheduling do
   # Private functions
 
   defp execute_conflict_checked_transaction(
+         attrs,
          start_time,
          end_time,
          organizer_user_id,
@@ -155,7 +158,8 @@ defmodule Tymeslot.Meetings.Scheduling do
       compute_buffered_window(start_time, end_time, organizer_user_id, meeting_type_id)
 
     Repo.transaction(fn ->
-      with :ok <- enforce_booking_limits(limit_check),
+      with {:ok, locked_attrs} <- add_service_snapshot(attrs, organizer_user_id),
+           :ok <- enforce_booking_limits(limit_check),
            {:ok, :no_conflicts} <-
              MeetingConflictQueries.count_locked_conflicts(
                buffered_start,
@@ -163,8 +167,12 @@ defmodule Tymeslot.Meetings.Scheduling do
                nil,
                organizer_user_id
              ) do
-        operation_fn.()
+        operation_fn.(locked_attrs)
       else
+        {:error, reason}
+        when reason in [:meeting_type_not_found, :invalid_service_configuration] ->
+          Repo.rollback(reason)
+
         {:error, :booking_limit_reached} ->
           Repo.rollback(:booking_limit_reached)
 
@@ -173,6 +181,26 @@ defmodule Tymeslot.Meetings.Scheduling do
           Repo.rollback(:time_conflict)
       end
     end)
+  end
+
+  defp add_service_snapshot(attrs, organizer_user_id) do
+    case {MapKeys.get(attrs, :meeting_type_id), organizer_user_id} do
+      {nil, _organizer_user_id} ->
+        {:ok, attrs}
+
+      {_meeting_type_id, owner_id} when not is_integer(owner_id) ->
+        {:ok, attrs}
+
+      {meeting_type_id, owner_id} ->
+        with {:ok, snapshot} <-
+               MeetingTypeQueries.get_service_for_update(
+                 meeting_type_id,
+                 owner_id,
+                 MapKeys.get(attrs, :duration)
+               ) do
+          {:ok, if(snapshot, do: Map.put(attrs, :service_snapshot, snapshot), else: attrs)}
+        end
+    end
   end
 
   # nil means limits are not applicable to this call (disabled via opts, or
@@ -196,8 +224,8 @@ defmodule Tymeslot.Meetings.Scheduling do
     limits = BookingLimits.limits_for(settings, meeting_type)
 
     if BookingLimits.enabled?(limits) do
-      # Row locks cannot serialise limit counts — concurrent bookings occupy
-      # different, non-overlapping windows — so serialise per host instead.
+      # Row locks cannot serialise limit counts because concurrent bookings occupy
+      # different, non-overlapping windows, so serialise per host instead.
       # Hosts without limits never reach this and keep full concurrency.
       MeetingConflictQueries.acquire_booking_limits_lock(organizer_user_id)
 

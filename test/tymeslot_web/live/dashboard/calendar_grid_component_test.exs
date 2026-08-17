@@ -12,11 +12,11 @@ defmodule TymeslotWeb.Dashboard.CalendarGridComponentTest do
 
   setup %{conn: conn} do
     user = insert(:user, onboarding_completed_at: DateTime.utc_now())
-    _profile = insert(:profile, user: user)
+    profile = insert(:profile, user: user)
     _integration = insert(:calendar_integration, user: user)
     conn = conn |> Test.init_test_session(%{}) |> fetch_session()
     conn = log_in_user(conn, user)
-    {:ok, conn: conn, user: user}
+    {:ok, conn: conn, user: user, profile: profile}
   end
 
   describe "navigation" do
@@ -32,10 +32,10 @@ defmodule TymeslotWeb.Dashboard.CalendarGridComponentTest do
   end
 
   describe "view switching" do
-    test "switches to day view", %{conn: conn} do
+    test "switches to day view", %{conn: conn, profile: profile} do
       {:ok, lv, _html} = live(conn, ~p"/dashboard/calendar")
       html = lv |> element("button[phx-value-view='day']", "Day") |> render_click()
-      assert html =~ Calendar.strftime(Date.utc_today(), "%A")
+      assert html =~ Calendar.strftime(local_today(profile), "%A")
     end
 
     test "switches back to week view after day view", %{conn: conn} do
@@ -73,7 +73,7 @@ defmodule TymeslotWeb.Dashboard.CalendarGridComponentTest do
       assert prefs.default_view == "week"
     end
 
-    test "mobile viewport demotes week to day", %{conn: conn} do
+    test "mobile viewport demotes week to day", %{conn: conn, profile: profile} do
       {:ok, lv, _html} = live(conn, ~p"/dashboard/calendar")
 
       lv
@@ -82,7 +82,7 @@ defmodule TymeslotWeb.Dashboard.CalendarGridComponentTest do
 
       html = render(lv)
       # Day view's full date format appears
-      assert html =~ Calendar.strftime(Date.utc_today(), "%A, %B %-d, %Y")
+      assert html =~ Calendar.strftime(local_today(profile), "%A, %B %-d, %Y")
     end
 
     test "mobile viewport demotes three_day to day", %{conn: conn} do
@@ -382,13 +382,13 @@ defmodule TymeslotWeb.Dashboard.CalendarGridComponentTest do
   end
 
   describe "set_view via shortcuts" do
-    test "set_view switches to day, week, and month", %{conn: conn} do
+    test "set_view switches to day, week, and month", %{conn: conn, profile: profile} do
       {:ok, lv, _html} = live(conn, ~p"/dashboard/calendar")
 
       html =
         lv |> element("#calendar-grid") |> render_hook("set_view", %{"view" => "day"})
 
-      assert html =~ Calendar.strftime(Date.utc_today(), "%A, %B %-d, %Y")
+      assert html =~ Calendar.strftime(local_today(profile), "%A, %B %-d, %Y")
 
       lv |> element("#calendar-grid") |> render_hook("set_view", %{"view" => "month"})
       html = render(lv)
@@ -398,8 +398,14 @@ defmodule TymeslotWeb.Dashboard.CalendarGridComponentTest do
       html =
         lv |> element("#calendar-grid") |> render_hook("set_view", %{"view" => "week"})
 
-      refute html =~ Calendar.strftime(Date.utc_today(), "%A, %B %-d, %Y")
+      refute html =~ Calendar.strftime(local_today(profile), "%A, %B %-d, %Y")
     end
+  end
+
+  defp local_today(profile) do
+    profile.timezone
+    |> DateTime.now!()
+    |> DateTime.to_date()
   end
 
   # Extracts the calendar period label, which renders inside the mini-month

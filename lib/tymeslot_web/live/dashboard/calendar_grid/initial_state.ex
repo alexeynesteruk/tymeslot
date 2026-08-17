@@ -75,4 +75,13 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.InitialState do
       _initialized: false
     }
   end
+
+  @doc "Returns the date containing `now` in the requested timezone."
+  @spec today_in_timezone(String.t(), DateTime.t()) :: Date.t()
+  def today_in_timezone(timezone, %DateTime{} = now) do
+    case DateTime.shift_zone(now, timezone) do
+      {:ok, local_now} -> DateTime.to_date(local_now)
+      {:error, _reason} -> DateTime.to_date(now)
+    end
+  end
 end

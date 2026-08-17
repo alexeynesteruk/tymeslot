@@ -15,8 +15,9 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
 
   alias Tymeslot.Analytics
   alias Tymeslot.Bookings.SubmissionToken
-  alias Tymeslot.CustomFields
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MyPawTrainer.Intake
+  alias Tymeslot.MyPawTrainer.ZipAllowlist
   alias Tymeslot.Profiles
   alias Tymeslot.Scheduling.ThemeFlow
   alias TymeslotWeb.Helpers.ClientIP
@@ -173,7 +174,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
         meeting_type ->
           # Re-initialise the engine with a fresh snapshot whenever the meeting type
           # changes so the `:questions` step always reflects the current custom fields.
-          defs = CustomFields.snapshot_for(meeting_type)
+          defs = Intake.definitions_for_meeting_type(meeting_type)
 
           socket
           |> assign(:meeting_type, meeting_type)
@@ -211,7 +212,44 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
     |> maybe_assign_from_params(:selected_time, params["time"])
     |> maybe_assign_from_params(:reschedule_meeting_uid, params["reschedule_meeting_uid"])
     |> assign(:is_rescheduling, params["reschedule_meeting_uid"] != nil)
+    |> assign_service_area(params)
     |> handle_confirmation_params(params)
+  end
+
+  @doc """
+  Applies in-home ZIP eligibility before times can be fetched or shown.
+  Discovery and online never consult the allowlist.
+  """
+  @spec assign_service_area(Phoenix.LiveView.Socket.t(), map()) :: Phoenix.LiveView.Socket.t()
+  def assign_service_area(socket, params) do
+    zip = params["zip"] || socket.assigns[:service_area_zip]
+    meeting_type = socket.assigns[:meeting_type] || %{}
+
+    {normalized_zip, status} = service_area_status(meeting_type, zip)
+
+    socket
+    |> assign(:service_area_zip, normalized_zip)
+    |> assign(:service_area_status, status)
+  end
+
+  defp service_area_status(meeting_type, zip) do
+    cond do
+      not ZipAllowlist.requires_zip?(meeting_type) ->
+        {nil, :ok}
+
+      is_nil(zip) or zip == "" ->
+        {nil, :zip_required}
+
+      true ->
+        case ZipAllowlist.authorize_schedule(meeting_type, zip) do
+          :ok ->
+            {:ok, zip_code} = ZipAllowlist.normalize(zip)
+            {zip_code, :ok}
+
+          {:error, :service_area_unavailable} ->
+            {zip, :service_area_unavailable}
+        end
+    end
   end
 
   defp handle_confirmation_params(socket, params) do
@@ -278,7 +316,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
       |> redirect(to: ~p"/#{socket.assigns[:username_context]}")
     else
       {:meeting_type, meeting_type} ->
-        defs = CustomFields.snapshot_for(meeting_type)
+        defs = Intake.definitions_for_meeting_type(meeting_type)
 
         socket
         |> assign(:meeting_type, meeting_type)
@@ -309,6 +347,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
       |> assign(:current_year, current_year)
       |> assign(:current_month, current_month)
       |> assign(:duration, normalized_duration)
+      |> assign_service_area(params)
 
     # Trigger month availability fetch in background if not already loading or loaded for this month
     if AvailabilityHelpers.can_fetch_availability?(socket) do
