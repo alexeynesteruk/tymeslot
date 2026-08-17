@@ -4,13 +4,11 @@ Updated: 2026-08-17
 
 ## Checkout
 
-- Local worktree: `/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-booking`
+- Local checkout: `/Users/anesteruk/Documents/tymeslot`
 - Fork remote: `git@github.com:alexeynesteruk/tymeslot.git`
 - Upstream remote: `git@github.com:Tymeslot/tymeslot.git`
-- Branch: `feat/mpt-booking`
-- Baseline repair started from: `414b19762b360b9ab4bc4bf660fccc7730ad1c04`
-- `origin/main`: `5c19a7510eaae9df8a7a6737133d9242e7a29b59`
-- `upstream/main`: `5c19a7510eaae9df8a7a6737133d9242e7a29b59`
+- Branch: `feat/mpt-booking-guards`
+- `origin/main`: `4b336e6a` (Tasks 1-4 merged)
 - Git SSH identity: `/Users/anesteruk/.ssh/mypawtrainer.com`
 
 The checkout already existed from the previous session. It was verified and
@@ -51,6 +49,15 @@ both remotes were fetched instead of creating a duplicate clone.
   shown. Ineligible ZIP returns `service_area_unavailable`. Discovery and
   online never consult the allowlist. No ZIPs are seeded. Production booking
   stays off.
+- Task 5 fail-closed booking guards: implemented locally on 2026-08-17.
+  `BookingGuard` authorizes only the three direct IDs, enforces catalog
+  duration, and requires an active owner ZIP for in-home. Generic Tymeslot
+  bookings still proceed on calendar timeout. Direct services refuse timeout,
+  transport failure, malformed payloads, and incomplete busy sets.
+  `acquire_trainer_booking_lock/1` serializes create and reschedule writes
+  inside the booking transaction. Real two-connection overlapping-slot races
+  yield one `:ok` and one `:time_conflict`. Event types stay inactive. No
+  ZIPs are seeded. Production booking stays off.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -80,18 +87,18 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. Task 4 focused suites plus bookings
-regression passed 295 tests. Formatting and `git diff --check` pass.
-Date-boundary failures in the upstream calendar and scheduling tests remain
-repaired. The complete gate has not been re-run in this change.
+17.11 with explicit Homebrew paths. Task 5 focused suites plus bookings,
+meetings, and calendar regression passed 2436 tests. The two-connection
+same-slot race passed separately (2 tests) so committed rows do not leak
+into the sandbox suite. Formatting and `git diff --check` pass. The
+complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 4 is complete locally. Do not activate production booking, seed ZIPs,
-or deploy the scheduler. Next planned work is Task 5 only after this branch
-is reviewed. TS-1 still needs a production-disabled deploy with inactive
-event types, which remains blocked by host hardening and the GitHub push
-key.
+Task 5 is complete locally on `feat/mpt-booking-guards`. Do not activate
+production booking, seed ZIPs, or deploy the scheduler. Next planned work
+is Task 6. TS-1 and TS-2 still need a production-disabled deploy with
+inactive event types, which remains blocked by host hardening.
 
 ## Production blockers
 

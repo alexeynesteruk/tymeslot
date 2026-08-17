@@ -19,6 +19,9 @@ defmodule Tymeslot.Bookings.Create do
   alias Tymeslot.Meetings.Guests
   alias Tymeslot.Meetings.Scheduling
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MyPawTrainer.BookingGuard
+  alias Tymeslot.MyPawTrainer.CalendarAvailability
+  alias Tymeslot.MyPawTrainer.ServiceCatalog
   alias Tymeslot.Profiles
   alias Tymeslot.Repo
   alias Tymeslot.Workers.VideoRoomWorker
@@ -71,6 +74,7 @@ defmodule Tymeslot.Bookings.Create do
     with {:ok, booking_data} <- prepare_booking_data(meeting_params, form_data),
          :ok <- validate_custom_field_answers(booking_data),
          booking_data = put_meeting_type_record(booking_data),
+         {:ok, booking_data} <- authorize_direct_service(booking_data),
          {:ok, :validated} <- validate_booking(booking_data, opts) do
       create_meeting_and_all_side_effects_atomically(booking_data, opts)
     else
@@ -89,22 +93,25 @@ defmodule Tymeslot.Bookings.Create do
     opts = Keyword.put(opts, :with_video_room, true)
 
     with {:ok, booking_data} <- prepare_booking_data(meeting_params, form_data),
-         :ok <- validate_custom_field_answers(booking_data) do
-      booking_data = put_meeting_type_record(booking_data)
-
-      # Try calendar pre-check for better UX
-      case fresh_calendar_check(booking_data) do
+         :ok <- validate_custom_field_answers(booking_data),
+         booking_data = put_meeting_type_record(booking_data),
+         {:ok, booking_data} <- authorize_direct_service(booking_data) do
+      case precheck_calendar(booking_data) do
         :ok ->
-          # Calendar shows available, proceed normally
           execute_internal(booking_data, form_data, opts)
 
         {:error, :slot_unavailable} ->
-          # Fail fast for better UX
           {:error, classify_error(:slot_unavailable)}
 
+        {:error, :availability_unverifiable} ->
+          {:error, classify_error(:availability_unverifiable)}
+
         {:error, _reason} ->
-          # Calendar check failed, but continue with atomic booking
-          execute_internal(booking_data, form_data, opts)
+          if direct_service?(booking_data) do
+            {:error, classify_error(:availability_unverifiable)}
+          else
+            execute_internal(booking_data, form_data, opts)
+          end
       end
     else
       {:error, reason} -> {:error, classify_error(reason)}
@@ -159,7 +166,8 @@ defmodule Tymeslot.Bookings.Create do
         utm_term: Map.get(meeting_params, :utm_term),
         referrer_host: Map.get(meeting_params, :referrer_host),
         tracking_params: Map.get(meeting_params, :tracking_params, %{}),
-        visitor_hash: Map.get(meeting_params, :visitor_hash)
+        visitor_hash: Map.get(meeting_params, :visitor_hash),
+        zip: Map.get(meeting_params, :zip)
       }
 
       {:ok, booking_data}
@@ -232,24 +240,37 @@ defmodule Tymeslot.Bookings.Create do
     )
   end
 
-  defp validate_calendar_availability(booking_data, _config) do
+  defp validate_calendar_availability(booking_data, config) do
+    if direct_service?(booking_data) do
+      case CalendarAvailability.final_check(calendar_slot(booking_data, config)) do
+        :ok ->
+          {:ok, :validated}
+
+        {:error, :slot_unavailable} ->
+          {:error, :slot_unavailable}
+
+        {:error, :calendar_unverifiable} ->
+          Logger.warning(
+            "Direct-service calendar availability could not be verified, refusing booking",
+            organizer_user_id: booking_data.organizer_user_id
+          )
+
+          {:error, :availability_unverifiable}
+      end
+    else
+      validate_generic_calendar_availability(booking_data, config)
+    end
+  end
+
+  defp validate_generic_calendar_availability(booking_data, _config) do
     case fresh_calendar_check(booking_data) do
       :ok ->
         {:ok, :validated}
 
       {:error, :slot_unavailable} ->
-        # Actual conflict detected - fail fast to prevent double booking
         {:error, :slot_unavailable}
 
       {:error, reason} when reason in [:some_calendars_unavailable, :all_calendars_unavailable] ->
-        # Distinct from the transport errors below: here the fetch SUCCEEDED in
-        # reaching the calendar layer, which reported that it could not read
-        # every selected calendar. The busy set is therefore incomplete, and
-        # falling through to "proceed anyway" would skip the conflict check
-        # entirely — strictly worse than checking against a partial set, because
-        # a conflict sitting in a calendar that did respond would also be missed.
-        # Refuse instead; `classify_error/1` maps this to `:slot_taken`, so the
-        # booker is returned to the schedule step and can retry.
         Logger.warning(
           "Calendar availability could not be verified, refusing booking",
           reason: inspect(reason),
@@ -259,8 +280,6 @@ defmodule Tymeslot.Bookings.Create do
         {:error, :availability_unverifiable}
 
       {:error, reason} ->
-        # Calendar transport/timeout errors - log but don't block booking
-        # The booking will succeed and calendar sync will be retried in background
         Logger.warning(
           "Calendar availability check failed, proceeding with booking",
           reason: inspect(reason),
@@ -269,6 +288,72 @@ defmodule Tymeslot.Bookings.Create do
 
         {:ok, :validated}
     end
+  end
+
+  defp precheck_calendar(booking_data) do
+    if direct_service?(booking_data) do
+      case CalendarAvailability.final_check(calendar_slot(booking_data, %{})) do
+        :ok -> :ok
+        {:error, :slot_unavailable} -> {:error, :slot_unavailable}
+        {:error, :calendar_unverifiable} -> {:error, :availability_unverifiable}
+      end
+    else
+      fresh_calendar_check(booking_data)
+    end
+  end
+
+  defp authorize_direct_service(booking_data) do
+    case service_id(booking_data) do
+      nil ->
+        {:ok, booking_data}
+
+      service_id ->
+        if ServiceCatalog.direct_bookable?(service_id) or known_mpt_service?(service_id) do
+          apply_direct_service_authorization(booking_data, service_id)
+        else
+          {:ok, booking_data}
+        end
+    end
+  end
+
+  defp apply_direct_service_authorization(booking_data, service_id) do
+    with {:ok, snapshot} <-
+           BookingGuard.authorize_service(service_id, %{
+             owner_id: booking_data.organizer_user_id,
+             zip: Map.get(booking_data, :zip),
+             duration_minutes: booking_data.duration_minutes,
+             meeting_type: booking_data.meeting_type
+           }) do
+      duration = snapshot["duration_minutes"]
+
+      {:ok,
+       booking_data
+       |> Map.put(:duration_minutes, duration)
+       |> Map.put(:end_datetime, DateTime.add(booking_data.start_datetime, duration, :minute))
+       |> Map.put(:service_snapshot, snapshot)}
+    end
+  end
+
+  defp known_mpt_service?(service_id) do
+    match?({:ok, _id}, ServiceCatalog.validate_id(service_id))
+  end
+
+  defp direct_service?(booking_data) do
+    ServiceCatalog.direct_bookable?(service_id(booking_data))
+  end
+
+  defp service_id(%{meeting_type: %{service_id: service_id}}), do: service_id
+  defp service_id(_booking_data), do: nil
+
+  defp calendar_slot(booking_data, config) do
+    %{
+      start_datetime: booking_data.start_datetime,
+      end_datetime: booking_data.end_datetime,
+      date: booking_data.date,
+      organizer_user_id: booking_data.organizer_user_id,
+      buffer_minutes: Map.get(config, :buffer_minutes, 0),
+      meeting_type: Map.get(booking_data, :meeting_type)
+    }
   end
 
   defp fresh_calendar_check(booking_data) do
@@ -442,6 +527,10 @@ defmodule Tymeslot.Bookings.Create do
     time_conflict: :slot_taken,
     slot_unavailable: :slot_taken,
     availability_unverifiable: :slot_taken,
+    calendar_unverifiable: :slot_taken,
+    service_not_bookable: :service_not_bookable,
+    service_area_unavailable: :service_area_unavailable,
+    invalid_duration: :invalid_duration,
     booking_limit_reached: :booking_limit_reached,
     organizer_required: :organizer_required,
     validation_error: :booking_failed,

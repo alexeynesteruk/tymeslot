@@ -305,6 +305,9 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
       {:error, :booking_limit_reached} ->
         handle_booking_limit_reached(socket)
 
+      {:error, :service_area_unavailable} ->
+        handle_service_area_unavailable(socket)
+
       {:error, reason} ->
         handle_booking_error(socket, reason)
     end
@@ -367,6 +370,15 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
     {:slot_taken, socket}
   end
 
+  defp handle_service_area_unavailable(socket) do
+    socket =
+      socket
+      |> BookingGuards.release_submission()
+      |> Flash.put_flash(:error, BookingErrorMessage.message(:service_area_unavailable))
+
+    {:slot_taken, socket}
+  end
+
   # Selects the booking orchestrator based on the current preview state.
   #
   # Three cases:
@@ -406,7 +418,8 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
       with_video_room: true,
       custom_fields_snapshot: Map.get(sanitized_params, "custom_fields_snapshot", []),
       custom_field_answers: Map.get(sanitized_params, "custom_field_answers", %{}),
-      guest_emails: socket.assigns[:guest_emails] || []
+      guest_emails: socket.assigns[:guest_emails] || [],
+      zip: socket.assigns[:service_area_zip]
     }
   end
 
@@ -461,17 +474,30 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
   end
 
   defp resolve_duration_minutes(socket) do
-    case socket.assigns[:meeting_type] do
-      %{duration_minutes: mins} when is_integer(mins) ->
-        mins
+    meeting_type = socket.assigns[:meeting_type]
 
-      _other ->
+    cond do
+      catalog_duration = catalog_duration(meeting_type) ->
+        catalog_duration
+
+      match?(%{duration_minutes: mins} when is_integer(mins), meeting_type) ->
+        meeting_type.duration_minutes
+
+      true ->
         case socket.assigns[:duration] || socket.assigns[:selected_duration] do
           nil -> 30
           val -> TimeSlots.parse_duration(val)
         end
     end
   end
+
+  defp catalog_duration(%{service_id: service_id}) do
+    if Tymeslot.MyPawTrainer.ServiceCatalog.direct_bookable?(service_id) do
+      Tymeslot.MyPawTrainer.BookingGuard.service(service_id).duration_minutes
+    end
+  end
+
+  defp catalog_duration(_meeting_type), do: nil
 
   defp get_meeting_type_id(socket) do
     case socket.assigns[:meeting_type] do

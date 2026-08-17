@@ -30,4 +30,7 @@ defmodule Tymeslot.Bookings.Errors do
           | :checkout_failed
           | :meeting_not_found
           | :failed_to_update_meeting
+          | :service_not_bookable
+          | :service_area_unavailable
+          | :invalid_duration
 end

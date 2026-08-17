@@ -20,12 +20,15 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingErrorMessageTest do
     :custom_field_errors,
     :checkout_failed,
     :meeting_not_found,
-    :failed_to_update_meeting
+    :failed_to_update_meeting,
+    :service_not_bookable,
+    :service_area_unavailable,
+    :invalid_duration
   ]
 
   describe "message/1 with classified error atoms" do
     test "covers every atom in Errors.classified_error/0 with a translated, non-leaking message" do
-      assert length(@classified_errors) == 11
+      assert length(@classified_errors) == 14
 
       results =
         for reason <- @classified_errors do
@@ -77,6 +80,15 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingErrorMessageTest do
 
       assert BookingErrorMessage.message(:failed_to_update_meeting) ==
                "Failed to process booking. Please try again."
+
+      assert BookingErrorMessage.message(:service_not_bookable) ==
+               "This service cannot be booked online. Please send a request instead."
+
+      assert BookingErrorMessage.message(:service_area_unavailable) ==
+               "In-home visits are only available in eligible ZIP codes. Please check your ZIP or choose an online service."
+
+      assert BookingErrorMessage.message(:invalid_duration) ==
+               "This service length is no longer valid. Please refresh and try again."
     end
   end
 

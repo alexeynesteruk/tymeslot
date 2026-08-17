@@ -158,7 +158,8 @@ defmodule Tymeslot.Meetings.Scheduling do
       compute_buffered_window(start_time, end_time, organizer_user_id, meeting_type_id)
 
     Repo.transaction(fn ->
-      with {:ok, locked_attrs} <- add_service_snapshot(attrs, organizer_user_id),
+      with :ok <- acquire_trainer_booking_lock(organizer_user_id),
+           {:ok, locked_attrs} <- add_service_snapshot(attrs, organizer_user_id),
            :ok <- enforce_booking_limits(limit_check),
            {:ok, :no_conflicts} <-
              MeetingConflictQueries.count_locked_conflicts(
@@ -215,6 +216,12 @@ defmodule Tymeslot.Meetings.Scheduling do
       }
     end
   end
+
+  defp acquire_trainer_booking_lock(organizer_user_id) when is_integer(organizer_user_id) do
+    MeetingConflictQueries.acquire_trainer_booking_lock(organizer_user_id)
+  end
+
+  defp acquire_trainer_booking_lock(_organizer_user_id), do: :ok
 
   defp enforce_booking_limits(nil), do: :ok
 
@@ -311,7 +318,8 @@ defmodule Tymeslot.Meetings.Scheduling do
       )
 
     Repo.transaction(fn ->
-      with :ok <- enforce_booking_limits(limit_check),
+      with :ok <- acquire_trainer_booking_lock(meeting.organizer_user_id),
+           :ok <- enforce_booking_limits(limit_check),
            {:ok, :no_conflicts} <-
              MeetingConflictQueries.count_locked_conflicts(
                buffered_start,

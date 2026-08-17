@@ -12,6 +12,8 @@ defmodule Tymeslot.Bookings.Reschedule do
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.Meetings.Scheduling
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MyPawTrainer.CalendarAvailability
+  alias Tymeslot.MyPawTrainer.ServiceCatalog
   alias Tymeslot.Notifications.Events
   alias Tymeslot.Repo
   alias Tymeslot.Workers.VideoSyncWorker
@@ -53,6 +55,7 @@ defmodule Tymeslot.Bookings.Reschedule do
            MeetingQueries.get_meeting_by_uid_for_organizer(meeting_uid, organizer_user_id),
          :ok <- validate_can_reschedule(original_meeting),
          {:ok, new_times} <- prepare_new_times(new_params, original_meeting),
+         :ok <- verify_fresh_availability(original_meeting, new_times),
          {:ok, updated_meeting} <- apply_time_update_and_schedule_job(original_meeting, new_times) do
       AvailabilityCache.invalidate_for_user(updated_meeting.organizer_user_id)
       sync_provider_video_room(updated_meeting)
@@ -60,6 +63,8 @@ defmodule Tymeslot.Bookings.Reschedule do
       {:ok, updated_meeting}
     else
       {:error, :not_found} -> {:error, :meeting_not_found}
+      {:error, :slot_unavailable} -> {:error, :slot_taken}
+      {:error, :calendar_unverifiable} -> {:error, :slot_taken}
       error -> error
     end
   end
@@ -113,12 +118,13 @@ defmodule Tymeslot.Bookings.Reschedule do
   defp prepare_new_times(params, meeting) do
     organizer_user_id = meeting.organizer_user_id
     meeting_type = fetch_meeting_type(meeting.meeting_type_id, organizer_user_id)
+    duration = reschedule_duration(meeting, meeting_type, params)
 
     with {:ok, {start_datetime, end_datetime}} <-
            Validation.parse_meeting_times(
              params.date,
              params.time,
-             params.duration,
+             duration,
              params.user_timezone
            ),
          :ok <-
@@ -131,9 +137,47 @@ defmodule Tymeslot.Bookings.Reschedule do
        %{
          start_time: start_datetime,
          end_time: end_datetime,
-         duration_minutes: TimeSlots.parse_duration(params.duration)
+         duration_minutes: duration
        }}
     end
+  end
+
+  defp reschedule_duration(meeting, meeting_type, params) do
+    cond do
+      is_integer(get_in(meeting.service_snapshot, ["duration_minutes"])) ->
+        meeting.service_snapshot["duration_minutes"]
+
+      is_integer(meeting.duration) and meeting.duration > 0 ->
+        meeting.duration
+
+      match?(%{duration_minutes: mins} when is_integer(mins), meeting_type) ->
+        meeting_type.duration_minutes
+
+      true ->
+        TimeSlots.parse_duration(params.duration)
+    end
+  end
+
+  defp verify_fresh_availability(meeting, new_times) do
+    if direct_service_meeting?(meeting) do
+      meeting_type = fetch_meeting_type(meeting.meeting_type_id, meeting.organizer_user_id)
+      config = Policy.scheduling_config(meeting.organizer_user_id, meeting_type)
+
+      CalendarAvailability.final_check(%{
+        start_datetime: new_times.start_time,
+        end_datetime: new_times.end_time,
+        date: DateTime.to_date(new_times.start_time),
+        organizer_user_id: meeting.organizer_user_id,
+        buffer_minutes: config.buffer_minutes,
+        meeting_type: meeting_type
+      })
+    else
+      :ok
+    end
+  end
+
+  defp direct_service_meeting?(meeting) do
+    ServiceCatalog.direct_bookable?(get_in(meeting.service_snapshot, ["service_id"]))
   end
 
   # Ad-hoc meetings carry no meeting type; a nil resolves the organiser's

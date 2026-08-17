@@ -74,6 +74,21 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingErrorMessage do
     dgettext("booking", "This meeting could not be found. Please refresh and try again.")
   end
 
+  def message(:service_not_bookable) do
+    dgettext("booking", "This service cannot be booked online. Please send a request instead.")
+  end
+
+  def message(:service_area_unavailable) do
+    dgettext(
+      "booking",
+      "In-home visits are only available in eligible ZIP codes. Please check your ZIP or choose an online service."
+    )
+  end
+
+  def message(:invalid_duration) do
+    dgettext("booking", "This service length is no longer valid. Please refresh and try again.")
+  end
+
   # Intentional passthrough, not dead code: reschedule shares its domain
   # validation with cancel (`Policy.can_reschedule_meeting?/1`,
   # `Validation`), which still returns binaries directly — atomizing

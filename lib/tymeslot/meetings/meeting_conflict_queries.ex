@@ -67,6 +67,7 @@ defmodule Tymeslot.Meetings.MeetingConflictQueries do
   # Distinguishes booking-limit locks from any other advisory locks the
   # application might take. Arbitrary but must stay stable.
   @booking_limits_lock_class 715_001
+  @trainer_booking_lock_class 715_002
 
   @doc """
   Serialises booking-limit checks for one organizer within the current
@@ -79,11 +80,25 @@ defmodule Tymeslot.Meetings.MeetingConflictQueries do
   """
   @spec acquire_booking_limits_lock(integer()) :: :ok
   def acquire_booking_limits_lock(organizer_user_id) when is_integer(organizer_user_id) do
-    Repo.query!("SELECT pg_advisory_xact_lock($1, $2)", [
-      @booking_limits_lock_class,
-      organizer_user_id
-    ])
+    advisory_xact_lock(@booking_limits_lock_class, organizer_user_id)
+  end
 
+  @doc """
+  Serialises create and reschedule writes for one organizer.
+
+  `FOR UPDATE NOWAIT` on an empty conflict set locks nothing, so two
+  same-slot inserts can both pass the check. This lock is taken before
+  limits, the conflict recheck, and insert or update, and is released on
+  commit or rollback. Do not hold it across Google, Stripe, email, or Oban.
+  Must be called inside a transaction.
+  """
+  @spec acquire_trainer_booking_lock(integer()) :: :ok
+  def acquire_trainer_booking_lock(organizer_user_id) when is_integer(organizer_user_id) do
+    advisory_xact_lock(@trainer_booking_lock_class, organizer_user_id)
+  end
+
+  defp advisory_xact_lock(lock_class, organizer_user_id) do
+    Repo.query!("SELECT pg_advisory_xact_lock($1, $2)", [lock_class, organizer_user_id])
     :ok
   end
 end
