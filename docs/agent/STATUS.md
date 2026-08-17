@@ -88,9 +88,14 @@ Do not edit the same task in both locations.
 - Observed host fingerprint:
   `SHA256:qxxvyJYrAJvDHh3nh3VBTkwgINPC+k+A85bVL8ILDoc`
 
-The VM was updated and rebooted. Before deployment it still needs a scheduler
-NSG, stable public IP, independent fingerprint confirmation, `rpcbind`
-disablement, and remaining host hardening. No scheduler is deployed.
+The VM was updated and rebooted. On 2026-08-17 a production-disabled host
+install started Tymeslot `d85a30f3` on loopback only. `rpcbind` is masked,
+UFW/fail2ban/Docker/Nginx are active, and `GET /healthcheck` on
+`127.0.0.1:4000` returns HTTP 200. Host Nginx now publishes
+`book.mypawtrainer.com` over HTTPS. Event types stay inactive. No ZIPs are
+seeded. Public booking and EspoCRM remain off. A scheduler NSG, reserved
+public IP, and independent console fingerprint confirmation are still
+outstanding.
 
 ## Toolchain checkpoint
 
@@ -103,10 +108,12 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 5 is complete locally on `feat/mpt-booking-guards`. Do not activate
-production booking, seed ZIPs, or deploy the scheduler. Next planned work
-is Task 6. TS-1 and TS-2 still need a production-disabled deploy with
-inactive event types, which remains blocked by host hardening.
+Task 6 is complete locally on `feat/mpt-deferred-payments` and that SHA is
+running loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
+local encrypted PostgreSQL backup and a disposable restore rehearsal both
+exist. Do not activate production booking or seed ZIPs. Next host work is
+Object Storage backups or Task 7 product work. Website booking URLs stay
+off.
 
 ## Production blockers
 
