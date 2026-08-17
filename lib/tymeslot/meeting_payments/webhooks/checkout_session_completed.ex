@@ -92,36 +92,40 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
        when status in ["charge_failed", "action_required"] do
     charge_id = fetch_recovery_charge_id(payment, object)
 
-    case Repo.transaction(fn ->
-           with {:ok, locked} <- BookingPaymentQueries.get_for_update(payment.id),
-                :ok <- validate_recovery(locked, event, object),
-                {:ok, paid} <-
-                  BookingPaymentQueries.update(locked, %{
-                    status: "paid",
-                    stripe_payment_intent_id: object["payment_intent"],
-                    stripe_charge_id: charge_id,
-                    paid_at: DateTime.utc_now(:second),
-                    last_error_code: nil
-                  }),
-                {:ok, _audit} <-
-                  BookingPaymentAudits.append(%{
-                    booking_payment_id: paid.id,
-                    meeting_id: paid.meeting_id,
-                    actor_type: "stripe",
-                    action: "recovery_succeeded",
-                    attempt: paid.charge_attempt,
-                    amount_cents: paid.service_snapshot["amount_cents"],
-                    result: "paid",
-                    stripe_object_id: paid.stripe_charge_id
-                  }) do
-             paid
-           else
-             :no_op -> :no_op
-             {:error, reason} -> Repo.rollback(reason)
-           end
-         end) do
-      {:ok, _result} -> :ok
-      {:error, reason} -> {:error, reason}
+    if is_binary(charge_id) do
+      case Repo.transaction(fn ->
+             with {:ok, locked} <- BookingPaymentQueries.get_for_update(payment.id),
+                  :ok <- validate_recovery(locked, event, object),
+                  {:ok, paid} <-
+                    BookingPaymentQueries.update(locked, %{
+                      status: "paid",
+                      stripe_payment_intent_id: object["payment_intent"],
+                      stripe_charge_id: charge_id,
+                      paid_at: DateTime.utc_now(:second),
+                      last_error_code: nil
+                    }),
+                  {:ok, _audit} <-
+                    BookingPaymentAudits.append(%{
+                      booking_payment_id: paid.id,
+                      meeting_id: paid.meeting_id,
+                      actor_type: "stripe",
+                      action: "recovery_succeeded",
+                      attempt: paid.charge_attempt,
+                      amount_cents: paid.service_snapshot["amount_cents"],
+                      result: "paid",
+                      stripe_object_id: paid.stripe_charge_id
+                    }) do
+               paid
+             else
+               :no_op -> :no_op
+               {:error, reason} -> Repo.rollback(reason)
+             end
+           end) do
+        {:ok, _result} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, :recovery_charge_unavailable}
     end
   end
 

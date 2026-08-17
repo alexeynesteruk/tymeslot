@@ -29,6 +29,8 @@ defmodule Tymeslot.MeetingPayments.RecoverySessionsTest do
 
       expect(StripeAdapterMock, :create_checkout_session, fn params, opts ->
         assert params.mode == "payment"
+        assert is_binary(params.success_url) and params.success_url != ""
+        assert is_binary(params.cancel_url) and params.cancel_url != ""
         assert hd(params.line_items).price_data.unit_amount == 19_000
         assert hd(params.line_items).price_data.currency == "usd"
 
@@ -101,6 +103,22 @@ defmodule Tymeslot.MeetingPayments.RecoverySessionsTest do
 
     late = recovery_event("evt_OLD", "cs_OLD", payment, "pi_OLD", "ch_OLD")
     assert :ok = CheckoutSessionCompleted.handle(late)
+    assert BookingPaymentQueries.get(payment.id).status == "charge_failed"
+  end
+
+  test "recovery completion remains failed when Stripe cannot provide a Charge ID" do
+    %{payment: payment} = failed_payment("charge_failed")
+
+    payment =
+      Ecto.Changeset.change(payment, stripe_recovery_session_id: "cs_UNCERTAIN")
+      |> Tymeslot.Repo.update!()
+
+    expect(StripeAdapterMock, :retrieve_payment_intent, fn "pi_UNCERTAIN", _opts ->
+      {:error, :timeout}
+    end)
+
+    event = recovery_event("evt_UNCERTAIN", "cs_UNCERTAIN", payment, "pi_UNCERTAIN", nil)
+    assert {:error, :recovery_charge_unavailable} = CheckoutSessionCompleted.handle(event)
     assert BookingPaymentQueries.get(payment.id).status == "charge_failed"
   end
 

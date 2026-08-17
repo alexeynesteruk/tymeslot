@@ -5,6 +5,7 @@ defmodule Tymeslot.MeetingPayments.RecoverySessions do
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MeetingPayments.StripeAdapter
   alias Tymeslot.Repo
+  alias TymeslotWeb.Endpoint
 
   @session_expiry_seconds 30 * 60
 
@@ -63,6 +64,8 @@ defmodule Tymeslot.MeetingPayments.RecoverySessions do
         },
         customer_email: payment.attendee_email,
         client_reference_id: payment.meeting_id,
+        success_url: Endpoint.url() <> "/dashboard/payments?recovery=success",
+        cancel_url: Endpoint.url() <> "/dashboard/payments?recovery=cancelled",
         metadata: %{
           booking_payment_id: payment.id,
           meeting_id: payment.meeting_id,
