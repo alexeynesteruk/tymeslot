@@ -178,4 +178,20 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.EngineTest do
     assert normalized["dog_age"] == "unknown"
     assert normalized["acquisition_age"] == "unknown"
   end
+
+  test "put_errors/2 stores field errors and jumps to the first invalid question" do
+    snapshot = Intake.question_snapshot_for("online-consultation")
+    last_index = length(snapshot) - 1
+
+    engine = %{Engine.init(snapshot) | current_index: last_index}
+
+    updated =
+      Engine.put_errors(engine, %{
+        "dog_age_unit" => "Choose weeks, months, or years"
+      })
+
+    assert updated.errors["dog_age_unit"] == "Choose weeks, months, or years"
+    assert Enum.at(updated.definitions, updated.current_index)["id"] == "dog_age_unit"
+    refute updated.current_index == last_index
+  end
 end

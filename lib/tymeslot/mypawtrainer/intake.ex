@@ -71,9 +71,9 @@ defmodule Tymeslot.MyPawTrainer.Intake do
   end
 
   defp validate_snapshot(snapshot, answers) do
-    extra_errors = Normalizer.extra_key_errors(snapshot, answers)
-    age_errors = Normalizer.age_errors(snapshot, answers)
     prepared_answers = Normalizer.prepare_answers(answers)
+    extra_errors = Normalizer.extra_key_errors(snapshot, prepared_answers)
+    age_errors = Normalizer.age_errors(snapshot, prepared_answers)
 
     case CustomFields.validate_answers(snapshot, prepared_answers) do
       {:ok, normalized} ->

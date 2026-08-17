@@ -28,6 +28,7 @@ defmodule Tymeslot.MyPawTrainer.Intake.Normalizer do
     Enum.reduce(@age_ids, answers, fn id, acc ->
       case acc[id] do
         value when is_number(value) -> Map.put(acc, id, to_string(value))
+        value when is_binary(value) -> Map.put(acc, id, String.trim(value))
         _other -> acc
       end
     end)

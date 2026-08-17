@@ -279,6 +279,26 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
              Intake.validate("online-consultation", %{valid_full() | "dog_age" => "not-an-age"})
 
     assert Map.has_key?(garbage, "dog_age")
+
+    assert {:ok, padded} =
+             Intake.validate("online-consultation", %{valid_full() | "dog_age" => " 3 "})
+
+    assert padded["dog_age"] == "3"
+
+    assert {:ok, decimal} =
+             Intake.validate("online-consultation", %{valid_full() | "dog_age" => "1.5"})
+
+    assert decimal["dog_age"] == "1.5"
+
+    assert {:error, trailing_dot} =
+             Intake.validate("online-consultation", %{valid_full() | "dog_age" => "1."})
+
+    assert Map.has_key?(trailing_dot, "dog_age")
+
+    assert {:error, negative_decimal} =
+             Intake.validate("online-consultation", %{valid_full() | "dog_age" => "-0.5"})
+
+    assert Map.has_key?(negative_decimal, "dog_age")
   end
 
   test "rejects extra keys and preserves valid values after recoverable errors" do

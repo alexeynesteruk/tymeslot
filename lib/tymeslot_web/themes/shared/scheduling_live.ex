@@ -345,11 +345,8 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
                 {:ok, _answers} ->
                   {:noreply, transition_to(socket, :booking, %{})}
 
-                {:error, _errors} ->
-                  case QEngine.next(engine) do
-                    {:ok, engine} -> {:noreply, assign(socket, :engine, engine)}
-                    {:error, engine} -> {:noreply, assign(socket, :engine, engine)}
-                  end
+                {:error, errors} ->
+                  {:noreply, assign(socket, :engine, QEngine.put_errors(engine, errors))}
               end
 
             true ->
