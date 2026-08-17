@@ -1,5 +1,5 @@
 defmodule Tymeslot.MyPawTrainer.Intake.Normalizer do
-  @moduledoc "Age unknown handling and extra-key rejection for consultation intake."
+  @moduledoc "Age number-or-unknown rules and extra-key rejection for consultation intake."
 
   @age_ids ~w(dog_age acquisition_age)
   @age_pairs [
@@ -23,29 +23,53 @@ defmodule Tymeslot.MyPawTrainer.Intake.Normalizer do
     end)
   end
 
-  @spec prepare_snapshot([map()], map()) :: [map()]
-  def prepare_snapshot(snapshot, answers) do
-    Enum.map(snapshot, fn field ->
-      if field["id"] in @age_ids and answers[field["id"]] == "unknown" do
-        field
-        |> Map.put("type", "short_text")
-        |> Map.delete("min")
-      else
-        field
+  @spec prepare_answers(map()) :: map()
+  def prepare_answers(answers) do
+    Enum.reduce(@age_ids, answers, fn id, acc ->
+      case acc[id] do
+        value when is_number(value) -> Map.put(acc, id, to_string(value))
+        _other -> acc
       end
     end)
   end
 
-  @spec age_unit_errors(map()) :: %{String.t() => String.t()}
-  def age_unit_errors(answers) do
+  @spec age_errors([map()], map()) :: %{String.t() => String.t()}
+  def age_errors(snapshot, answers) do
+    ids = MapSet.new(Enum.map(snapshot, & &1["id"]))
+
     Enum.reduce(@age_pairs, %{}, fn {age_id, unit_id}, acc ->
-      if numeric_age?(answers[age_id]) and answers[unit_id] not in @age_units do
-        Map.put(acc, unit_id, "Choose weeks, months, or years")
+      if MapSet.member?(ids, age_id) do
+        put_age_error(acc, age_id, unit_id, answers)
       else
         acc
       end
     end)
   end
+
+  defp put_age_error(acc, age_id, unit_id, answers) do
+    value = answers[age_id]
+
+    cond do
+      value == "unknown" ->
+        acc
+
+      blank_age?(value) ->
+        Map.put(acc, age_id, "is required")
+
+      numeric_age?(value) and answers[unit_id] not in @age_units ->
+        Map.put(acc, unit_id, "Choose weeks, months, or years")
+
+      numeric_age?(value) ->
+        acc
+
+      true ->
+        Map.put(acc, age_id, "must be a non-negative age or unknown")
+    end
+  end
+
+  defp blank_age?(value) when value in [nil, ""], do: true
+  defp blank_age?(value) when is_binary(value), do: String.trim(value) == ""
+  defp blank_age?(_value), do: false
 
   defp numeric_age?(value) when is_number(value), do: value >= 0
 

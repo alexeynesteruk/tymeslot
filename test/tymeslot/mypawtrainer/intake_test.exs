@@ -168,12 +168,34 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
     end
   end
 
+  test "age fields are short_text so the wizard can accept unknown" do
+    snapshot = Intake.question_snapshot_for("online-consultation")
+
+    assert field(snapshot, "dog_age")["type"] == "short_text"
+    assert field(snapshot, "acquisition_age")["type"] == "short_text"
+    refute Map.has_key?(field(snapshot, "dog_age"), "min")
+    refute Map.has_key?(field(snapshot, "acquisition_age"), "min")
+    assert field(snapshot, "dog_age_unit")["type"] == "single_select"
+    assert field(snapshot, "dog_age_unit")["required"] == false
+    assert field(snapshot, "acquisition_age_unit")["type"] == "single_select"
+    assert field(snapshot, "acquisition_age_unit")["required"] == false
+  end
+
   test "accepts a non-negative age plus unit or unknown" do
     assert {:ok, with_unit} = Intake.validate("online-consultation", valid_full())
     assert with_unit["dog_age"] == "3"
     assert with_unit["dog_age_unit"] == "years"
     assert with_unit["acquisition_age"] == "8"
     assert with_unit["acquisition_age_unit"] == "months"
+
+    integer_age =
+      valid_full()
+      |> Map.put("dog_age", 3)
+      |> Map.put("acquisition_age", 8)
+
+    assert {:ok, from_integers} = Intake.validate("online-consultation", integer_age)
+    assert from_integers["dog_age"] == "3"
+    assert from_integers["acquisition_age"] == "8"
 
     unknown_age =
       valid_full()
@@ -198,6 +220,23 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
              )
 
     assert Map.has_key?(unit_errors, "dog_age_unit")
+  end
+
+  test "rejects blank, unknown-type, and non-numeric ages" do
+    assert {:error, blank} =
+             Intake.validate("online-consultation", %{valid_full() | "dog_age" => ""})
+
+    assert Map.has_key?(blank, "dog_age")
+
+    assert {:error, bad_type} =
+             Intake.validate("online-consultation", %{valid_full() | "dog_age" => %{}})
+
+    assert Map.has_key?(bad_type, "dog_age")
+
+    assert {:error, garbage} =
+             Intake.validate("online-consultation", %{valid_full() | "dog_age" => "not-an-age"})
+
+    assert Map.has_key?(garbage, "dog_age")
   end
 
   test "rejects extra keys and preserves valid values after recoverable errors" do

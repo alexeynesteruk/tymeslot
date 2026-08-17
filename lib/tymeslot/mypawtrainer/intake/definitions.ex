@@ -64,12 +64,12 @@ defmodule Tymeslot.MyPawTrainer.Intake.Definitions do
       short_text("email", "Email", true),
       short_text("dog_name", "Dog's name", true),
       short_text("breed_or_mix", "Breed or mix", true),
-      number("dog_age", "Dog's age", true),
+      short_text("dog_age", "Dog's age", true),
       select("dog_age_unit", "Age unit", false, @age_unit_options),
       select("dog_sex", "Sex", true, @sex_options),
       select("spay_neuter_status", "Spay or neuter status", true, @spay_neuter_options),
       select("origin", "Origin", true, @origin_options),
-      number("acquisition_age", "Age when acquired", true),
+      short_text("acquisition_age", "Age when acquired", true),
       select("acquisition_age_unit", "Acquisition age unit", false, @age_unit_options),
       short_text("main_concern", "Main concern", true),
       short_text("brief_context", "Brief context", true),
@@ -79,10 +79,6 @@ defmodule Tymeslot.MyPawTrainer.Intake.Definitions do
 
   defp short_text(id, label, required) do
     %{"id" => id, "type" => "short_text", "label" => label, "required" => required}
-  end
-
-  defp number(id, label, required) do
-    %{"id" => id, "type" => "number", "label" => label, "required" => required, "min" => 0}
   end
 
   defp select(id, label, required, options) do

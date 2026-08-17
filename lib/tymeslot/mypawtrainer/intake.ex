@@ -51,20 +51,20 @@ defmodule Tymeslot.MyPawTrainer.Intake do
   def validate(service_id, answers) when is_map(answers) do
     snapshot = snapshot_for(service_id)
     extra_errors = Normalizer.extra_key_errors(snapshot, answers)
-    unit_errors = Normalizer.age_unit_errors(answers)
-    prepared = Normalizer.prepare_snapshot(snapshot, answers)
+    age_errors = Normalizer.age_errors(snapshot, answers)
+    prepared_answers = Normalizer.prepare_answers(answers)
 
-    case CustomFields.validate_answers(prepared, answers) do
+    case CustomFields.validate_answers(snapshot, prepared_answers) do
       {:ok, normalized} ->
-        finish(normalized, extra_errors, unit_errors)
+        finish(normalized, extra_errors, age_errors)
 
       {:error, field_errors} ->
-        {:error, field_errors |> Map.merge(extra_errors) |> Map.merge(unit_errors)}
+        {:error, field_errors |> Map.merge(extra_errors) |> Map.merge(age_errors)}
     end
   end
 
-  defp finish(normalized, extra_errors, unit_errors) do
-    errors = Map.merge(extra_errors, unit_errors)
+  defp finish(normalized, extra_errors, age_errors) do
+    errors = Map.merge(extra_errors, age_errors)
 
     if map_size(errors) == 0 do
       {:ok, normalized}
