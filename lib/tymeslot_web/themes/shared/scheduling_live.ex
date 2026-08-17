@@ -35,7 +35,11 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
       use TymeslotWeb, :live_view
       require Logger
 
-      alias TymeslotWeb.Live.Scheduling.{CalendarHelpers, OrganizerHelpers}
+      alias TymeslotWeb.Live.Scheduling.{
+        AvailabilityHelpers,
+        CalendarHelpers,
+        OrganizerHelpers
+      }
 
       alias TymeslotWeb.Live.Scheduling.Handlers.TimezoneHandlerComponent
 
@@ -206,6 +210,9 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
           event in [:back_step, :next_step] ->
             handle_schedule_navigation_events(socket, event)
 
+          event == :submit_zip ->
+            handle_submit_zip(socket, data)
+
           true ->
             handle_theme_schedule_event(socket, event, data)
         end
@@ -254,11 +261,33 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
             end
 
           :next_step ->
-            # Route to :questions when the meeting type has custom fields, else :booking.
-            states = StateMachine.states_for(socket.assigns[:meeting_type] || %{})
-            next = get_in(states, [:schedule, :next]) || :booking
-            handle_state_transition(socket, :schedule, next)
+            if socket.assigns[:service_area_status] in [nil, :ok] do
+              # Route to :questions when the meeting type has custom fields, else :booking.
+              states = StateMachine.states_for(socket.assigns[:meeting_type] || %{})
+              next = get_in(states, [:schedule, :next]) || :booking
+              handle_state_transition(socket, :schedule, next)
+            else
+              {:noreply, socket}
+            end
         end
+      end
+
+      defp handle_submit_zip(socket, zip) do
+        socket =
+          socket
+          |> LiveHelpers.assign_service_area(%{"zip" => zip})
+          |> assign(:available_slots, [])
+          |> assign(:selected_date, nil)
+          |> assign(:selected_time, nil)
+
+        socket =
+          if AvailabilityHelpers.can_fetch_availability?(socket) do
+            AvailabilityHelpers.fetch_month_availability_async(socket)
+          else
+            socket
+          end
+
+        {:noreply, socket}
       end
 
       defp handle_booking_events(socket, event, data) do

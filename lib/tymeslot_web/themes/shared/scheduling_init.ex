@@ -65,6 +65,8 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingInit do
     |> assign(:selected_date, nil)
     |> assign(:selected_time, nil)
     |> assign(:available_slots, [])
+    |> assign(:service_area_zip, nil)
+    |> assign(:service_area_status, :ok)
     |> assign(:loading_slots, false)
     |> assign(:calendar_error, nil)
     |> assign(:timezone_dropdown_open, false)

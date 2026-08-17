@@ -93,6 +93,12 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.ScheduleComponent do
   end
 
   @impl Phoenix.LiveComponent
+  def handle_event("submit_zip", %{"zip" => zip}, socket) do
+    send(self(), {:step_event, :schedule, :submit_zip, zip})
+    {:noreply, socket}
+  end
+
+  @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
     <div class="scheduling-box" data-locale={@locale}>
@@ -183,7 +189,38 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.ScheduleComponent do
               </div>
             </div>
 
-            <div class="schedule-grid">
+            <div
+              :if={@service_area_status not in [nil, :ok]}
+              class="service-area-gate"
+              data-testid="service-area-gate"
+              data-service-area-status={@service_area_status}
+            >
+              <p :if={@service_area_status == :zip_required}>
+                {dgettext("booking", "Enter your ZIP code to see in-home times.")}
+              </p>
+              <p
+                :if={@service_area_status == :service_area_unavailable}
+                data-testid="service-area-unavailable"
+              >
+                {dgettext("booking", "This ZIP is outside the current in-home service area.")}
+              </p>
+              <form phx-submit="submit_zip" phx-target={@myself}>
+                <label for="service-area-zip" class="sr-only">
+                  {dgettext("booking", "ZIP code")}
+                </label>
+                <input
+                  id="service-area-zip"
+                  name="zip"
+                  value={@service_area_zip}
+                  inputmode="numeric"
+                  autocomplete="postal-code"
+                  maxlength="10"
+                />
+                <button type="submit">{dgettext("booking", "Check ZIP")}</button>
+              </form>
+            </div>
+
+            <div :if={@service_area_status in [nil, :ok]} class="schedule-grid">
               <div class="calendar-section calendar-section-wrapper">
                 <div class="calendar-header">
                   <button

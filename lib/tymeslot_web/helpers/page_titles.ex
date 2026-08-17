@@ -15,6 +15,9 @@ defmodule TymeslotWeb.Helpers.PageTitles do
   def dashboard_title(:availability),
     do: section_title(dgettext("dashboard_common", "Availability"))
 
+  def dashboard_title(:service_area),
+    do: section_title(dgettext("dashboard_common", "Service Area"))
+
   def dashboard_title(:account), do: section_title(dgettext("dashboard_common", "Account"))
 
   def dashboard_title(:meeting_settings),

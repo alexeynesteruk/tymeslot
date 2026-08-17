@@ -24,6 +24,7 @@ defmodule TymeslotWeb.Dashboard.ComponentDispatch do
   alias TymeslotWeb.Dashboard.ProfileSettingsComponent
   alias TymeslotWeb.Dashboard.ScheduleSettingsComponent
   alias TymeslotWeb.Dashboard.ServiceSettingsComponent
+  alias TymeslotWeb.Dashboard.Mypawtrainer.ZipAllowlistComponent
   alias TymeslotWeb.Dashboard.ThemeSettingsComponent
   alias TymeslotWeb.Dashboard.VideoSettingsComponent
   alias TymeslotWeb.Live.Dashboard.EmbedSettingsComponent
@@ -44,6 +45,7 @@ defmodule TymeslotWeb.Dashboard.ComponentDispatch do
   def component_for_action(:overview, _components), do: DashboardOverviewComponent
   def component_for_action(:settings, _components), do: ProfileSettingsComponent
   def component_for_action(:availability, _components), do: ScheduleSettingsComponent
+  def component_for_action(:service_area, _components), do: ZipAllowlistComponent
   def component_for_action(:meeting_settings, _components), do: ServiceSettingsComponent
   def component_for_action(:calendar, _components), do: CalendarGridComponent
   def component_for_action(:calendar_integration, _components), do: CalendarSettingsComponent
