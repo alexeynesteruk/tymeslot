@@ -37,6 +37,9 @@ both remotes were fetched instead of creating a duplicate clone.
   services get the questions step even when host `custom_fields` are empty.
   Name and email stay on the existing booking form. Generic types with empty
   custom fields still skip questions. Production booking stays off.
+- Unknown age is now accepted in the booking wizard. `dog_age` and
+  `acquisition_age` are short_text. Intake still requires a non-negative
+  number plus unit, or `unknown` without a unit. Production booking stays off.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -66,9 +69,9 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. The Task 3 UI-wiring focused suites pass
-41 tests: intake 12, state-machine helpers 10, custom-field validator 14, and
-booking submission handler 5. Formatting and `git diff --check` pass.
+17.11 with explicit Homebrew paths. The Task 3 unknown-age focused suites pass 61 tests: intake 14,
+state-machine helpers 10, custom-field validator 14, booking submission
+handler 5, and questions engine 18. Formatting and `git diff --check` pass.
 Date-boundary failures in the upstream calendar and scheduling tests remain
 repaired. The complete gate has not been re-run in this change.
 
