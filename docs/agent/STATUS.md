@@ -1,6 +1,6 @@
 # My Paw Trainer Scheduler Status
 
-Updated: 2026-08-16
+Updated: 2026-08-17
 
 ## Checkout
 
@@ -24,6 +24,10 @@ both remotes were fetched instead of creating a duplicate clone.
 - Agent documents in this checkout: reconciled to the current six-service contract.
 - Stable service identity, versioned booking snapshots, and owner-scoped direct
   service provisioning: implemented locally and verified with focused suites.
+- Service-configuration review: closed on 2026-08-17. The six-service catalog,
+  immutable snapshots, owner-scoped lock, and idempotent direct-service
+  provisioning match the Task 2 contract. No production event types are active.
+- Service-specific intake: next implementation task. Not started.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -63,8 +67,8 @@ passes 12,192 tests with 104 excluded.
 
 ## Next safe action
 
-Close the service-configuration review. Do not start service-specific intake
-or activate production booking.
+Implement Task 3 service-specific intake in this worktree. Do not activate
+production booking, seed ZIPs, or deploy the scheduler.
 
 ## Production blockers
 
