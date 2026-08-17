@@ -9,12 +9,14 @@ defmodule TymeslotWeb.Dashboard.BookingsManagementComponent do
   alias Tymeslot.Bookings.Policy
   alias Tymeslot.MeetingPayments
   alias Tymeslot.Meetings
+  alias Tymeslot.Meetings.Completion
   alias Tymeslot.Security.RateLimiter
 
   alias Phoenix.LiveView
 
   alias TymeslotWeb.Components.Dashboard.Meetings.{
     CancelMeetingModal,
+    CompleteMeetingModal,
     Helpers,
     MeetingListComponents,
     RescheduleRequestModal
@@ -35,6 +37,7 @@ defmodule TymeslotWeb.Dashboard.BookingsManagementComponent do
      |> assign(:cancelling_meeting, nil)
      |> assign(:cancel_booking_payment, nil)
      |> assign(:sending_reschedule, nil)
+     |> assign(:completing_meeting, nil)
      |> assign(:per_page, 20)
      |> assign(:next_cursor, nil)
      |> assign(:has_more, false)
@@ -44,7 +47,11 @@ defmodule TymeslotWeb.Dashboard.BookingsManagementComponent do
      |> assign(:_last_filter, nil)
      |> assign(:_last_user_id, nil)
      |> assign(:_last_per_page, nil)
-     |> ModalHook.mount_modal(cancel_meeting: false, reschedule_request: false)}
+     |> ModalHook.mount_modal(
+       cancel_meeting: false,
+       reschedule_request: false,
+       complete_meeting: false
+     )}
   end
 
   @impl Phoenix.LiveComponent
@@ -216,6 +223,34 @@ defmodule TymeslotWeb.Dashboard.BookingsManagementComponent do
     end
   end
 
+  def handle_event("show_complete_modal", %{"id" => id}, socket) do
+    case Meetings.get_meeting_for_user(id, socket.assigns.current_user.email) do
+      {:ok, %{status: "confirmed"} = meeting} ->
+        {:noreply, ModalHook.show_modal(socket, :complete_meeting, meeting)}
+
+      _not_available ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("hide_complete_modal", _params, socket) do
+    {:noreply, ModalHook.hide_modal(socket, :complete_meeting)}
+  end
+
+  def handle_event("confirm_complete_meeting", _params, socket) do
+    ModalHook.with_modal_data(socket, :complete_meeting, fn meeting ->
+      case Completion.complete(meeting.id, socket.assigns.current_user.id) do
+        {:ok, _completed} ->
+          Flash.info(dgettext("dashboard_bookings", "Meeting marked completed."))
+          {:noreply, socket |> load_meetings() |> ModalHook.hide_modal(:complete_meeting)}
+
+        {:error, _reason} ->
+          Flash.error(dgettext("dashboard_bookings", "Meeting could not be completed."))
+          {:noreply, socket}
+      end
+    end)
+  end
+
   def handle_event("load_more", _params, %{assigns: %{loading_more: true}} = socket) do
     {:noreply, socket}
   end
@@ -349,6 +384,12 @@ defmodule TymeslotWeb.Dashboard.BookingsManagementComponent do
         }
         on_cancel={JS.push("hide_reschedule_modal", target: @myself)}
         on_confirm={JS.push("confirm_reschedule_request", target: @myself)}
+      />
+
+      <CompleteMeetingModal.complete_meeting_modal
+        show={@show_complete_meeting_modal || false}
+        meeting={@complete_meeting_modal_data}
+        target={@myself}
       />
     </div>
     """

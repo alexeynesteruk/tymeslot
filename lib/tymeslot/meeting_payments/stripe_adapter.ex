@@ -26,6 +26,8 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter do
               {:ok, map()} | {:error, term()}
   @callback retrieve_payment_intent(intent_id :: String.t(), opts :: keyword()) ::
               {:ok, map()} | {:error, term()}
+  @callback create_payment_intent(params :: map(), opts :: keyword()) ::
+              {:ok, map()} | {:error, term()}
   @callback retrieve_charge(charge_id :: String.t(), opts :: keyword()) ::
               {:ok, map()} | {:error, term()}
   @callback expire_checkout_session(session_id :: String.t(), opts :: keyword()) ::
@@ -88,6 +90,16 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter do
         impl().retrieve_payment_intent(id, opts)
       end)
     )
+  end
+
+  @spec create_payment_intent(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_payment_intent(params, opts \\ []) do
+    result =
+      Telemetry.span_stripe(:create_payment_intent, opts[:connect_account], fn ->
+        impl().create_payment_intent(params, opts)
+      end)
+
+    normalise_read(result)
   end
 
   @spec retrieve_charge(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
@@ -200,6 +212,9 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter.Stripity do
   @impl StripeAdapter
   def retrieve_payment_intent(id, opts),
     do: PaymentIntent.retrieve(id, %{expand: ["latest_charge"]}, opts)
+
+  @impl StripeAdapter
+  def create_payment_intent(params, opts), do: PaymentIntent.create(params, opts)
 
   @impl StripeAdapter
   def retrieve_charge(id, opts), do: Charge.retrieve(id, %{}, opts)

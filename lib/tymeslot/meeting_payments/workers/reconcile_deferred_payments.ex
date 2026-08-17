@@ -67,11 +67,21 @@ defmodule Tymeslot.MeetingPayments.Workers.ReconcileDeferredPayments do
   defp dispatch(payment, session) do
     cond do
       setup_complete?(session) ->
-        handle_or_log(payment, &CheckoutSessionCompleted.handle/1, synthetic_event(payment, session))
+        handle_or_log(
+          payment,
+          &CheckoutSessionCompleted.handle/1,
+          synthetic_event(payment, session)
+        )
+
         :reconciled
 
       expired?(session) ->
-        handle_or_log(payment, &CheckoutSessionExpired.handle/1, synthetic_event(payment, session))
+        handle_or_log(
+          payment,
+          &CheckoutSessionExpired.handle/1,
+          synthetic_event(payment, session)
+        )
+
         :reconciled
 
       true ->

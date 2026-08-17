@@ -19,6 +19,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MeetingPayments.BookingPaymentSchema
   alias Tymeslot.MeetingPayments.Telemetry
+  alias Tymeslot.MeetingPayments.BookingPaymentAudits
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.Repo
 
@@ -42,7 +43,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
         {:ok, :idempotent_replay}
 
       payment ->
-        classify(run(payment, event_id))
+        classify(run(payment, event_id, object))
     end
   end
 
@@ -64,7 +65,27 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
 
   defp lookup_by_session(_object), do: nil
 
-  defp run(%{status: status}, _event_id)
+  defp run(payment, _event_id, %{"metadata" => %{"payment_purpose" => "recovery"}} = object) do
+    if payment.stripe_recovery_session_id == object["id"] do
+      case BookingPaymentAudits.append(%{
+             booking_payment_id: payment.id,
+             meeting_id: payment.meeting_id,
+             actor_type: "stripe",
+             action: "recovery_expired",
+             attempt: payment.charge_attempt,
+             amount_cents: payment.service_snapshot["amount_cents"],
+             result: payment.status,
+             stripe_object_id: object["id"]
+           }) do
+        {:ok, _audit} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp run(%{status: status}, _event_id, _object)
        when status in [
               "card_saved",
               "charge_processing",
@@ -78,7 +99,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
     :ok
   end
 
-  defp run(payment, event_id) do
+  defp run(payment, event_id, _object) do
     result =
       Repo.transaction(fn ->
         with {:ok, _bp} <- mark_terminal(payment, event_id),

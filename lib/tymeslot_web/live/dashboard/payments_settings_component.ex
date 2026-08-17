@@ -22,6 +22,11 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsComponent do
   use Gettext, backend: TymeslotWeb.Gettext
 
   alias Tymeslot.MeetingPayments
+  alias Tymeslot.MeetingPayments.ManualCharges
+  alias Tymeslot.MeetingPayments.RecoverySessions
+  alias Tymeslot.MeetingPayments.Refunds
+  alias Tymeslot.Security.RateLimiter
+  alias TymeslotWeb.Dashboard.PaymentsSettings.ChargeModal
 
   import TymeslotWeb.Dashboard.PaymentsSettings.ConnectCta, only: [connect_cta: 1]
   import TymeslotWeb.Dashboard.PaymentsSettings.CurrencySelector, only: [currency_selector: 1]
@@ -40,6 +45,8 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsComponent do
      socket
      |> assign(:refund_modal_payment, nil)
      |> assign(:refund_submitting, false)
+     |> assign(:charge_modal_payment, nil)
+     |> assign(:recovery_url, nil)
      |> assign(:disconnect_modal_open, false)
      |> assign(:connect_account, nil)
      |> assign(:payments, [])
@@ -87,6 +94,14 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsComponent do
         submitting={@refund_submitting}
         myself={@myself}
       />
+
+      <ChargeModal.charge_modal
+        payment={@charge_modal_payment}
+        show={not is_nil(@charge_modal_payment)}
+        target={@myself}
+      />
+
+      <p :if={@recovery_url} id="recovery-checkout-url">{@recovery_url}</p>
 
       <.disconnect_modal
         open={@disconnect_modal_open}
@@ -210,6 +225,61 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsComponent do
      |> assign(:refund_submitting, false)}
   end
 
+  def handle_event("open_charge_modal", %{"id" => id}, socket) do
+    case MeetingPayments.get_payment(id) do
+      %{host_user_id: host_id, status: "card_saved"} = payment
+      when host_id == socket.assigns.current_user.id ->
+        {:noreply, assign(socket, :charge_modal_payment, payment)}
+
+      _not_available ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_charge_modal", _params, socket),
+    do: {:noreply, assign(socket, :charge_modal_payment, nil)}
+
+  def handle_event("submit_charge", %{"id" => payment_id}, socket) do
+    user_id = socket.assigns.current_user.id
+
+    case RateLimiter.check_payment_initiation_rate_limit(user_id) do
+      :ok ->
+        case ManualCharges.reserve(payment_id, user_id) do
+          {:ok, _reservation} ->
+            Flash.info(dgettext("dashboard_payments", "Charge requested."))
+
+            {:noreply,
+             socket
+             |> assign(:charge_modal_payment, nil)
+             |> assign_payments_state(socket.assigns.current_user)}
+
+          {:error, _reason} ->
+            Flash.error(dgettext("dashboard_payments", "Charge could not be requested."))
+            {:noreply, socket}
+        end
+
+      {:error, :rate_limited, message} ->
+        Flash.error(message)
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("create_recovery_link", %{"id" => payment_id}, socket) do
+    user_id = socket.assigns.current_user.id
+
+    case RateLimiter.check_payment_initiation_rate_limit(user_id) do
+      :ok ->
+        case RecoverySessions.create(payment_id, user_id) do
+          {:ok, %{checkout_url: url}} -> {:noreply, assign(socket, :recovery_url, url)}
+          {:error, _reason} -> {:noreply, socket}
+        end
+
+      {:error, :rate_limited, message} ->
+        Flash.error(message)
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("submit_refund", params, socket) do
     user = socket.assigns.current_user
     payment = socket.assigns.refund_modal_payment
@@ -288,13 +358,7 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsComponent do
   end
 
   defp issue_refund_authorized(payment_id, user_id, amount_cents) do
-    case MeetingPayments.get_payment(payment_id) do
-      %{host_user_id: ^user_id} = fresh_payment ->
-        MeetingPayments.issue_refund(fresh_payment, amount_cents)
-
-      _missing_or_not_owner ->
-        {:error, :not_authorized}
-    end
+    Refunds.issue_refund(payment_id, user_id, amount_cents)
   end
 
   @impl Phoenix.LiveComponent

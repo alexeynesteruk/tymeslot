@@ -14,6 +14,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreated do
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MeetingPayments.BookingPaymentSchema
   alias Tymeslot.MeetingPayments.Telemetry
+  alias Tymeslot.MeetingPayments.BookingPaymentAudits
   alias Tymeslot.MeetingPayments.Webhooks.PaymentLookup
   alias Tymeslot.Workers.SendChargeDisputeOpened
 
@@ -50,6 +51,18 @@ defmodule Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreated do
     case BookingPaymentQueries.update(payment, %{status: "disputed", last_event_id: event_id}) do
       {:ok, updated} ->
         Telemetry.emit_status_changed(payment.status, updated.status, :webhook_dispute_created)
+
+        _audit =
+          BookingPaymentAudits.append(%{
+            booking_payment_id: updated.id,
+            meeting_id: updated.meeting_id,
+            actor_type: "stripe",
+            action: "dispute_created",
+            amount_cents: updated.amount_cents,
+            result: "disputed",
+            stripe_object_id: object["charge"]
+          })
+
         enqueue_dispute_email(updated, object)
         :ok
 

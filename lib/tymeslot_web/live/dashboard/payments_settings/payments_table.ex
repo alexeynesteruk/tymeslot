@@ -61,6 +61,26 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.PaymentsTable do
                 >
                   {dgettext("dashboard_payments", "Refund")}
                 </button>
+                <button
+                  :if={p.status == "card_saved"}
+                  type="button"
+                  class="text-token-sm text-turquoise-700 font-semibold underline ml-3"
+                  phx-click="open_charge_modal"
+                  phx-value-id={p.id}
+                  phx-target={@myself}
+                >
+                  Charge
+                </button>
+                <button
+                  :if={p.status in ["charge_failed", "action_required"]}
+                  type="button"
+                  class="text-token-sm text-turquoise-700 font-semibold underline ml-3"
+                  phx-click="create_recovery_link"
+                  phx-value-id={p.id}
+                  phx-target={@myself}
+                >
+                  Create recovery link
+                </button>
               </td>
             </tr>
           </tbody>
@@ -88,5 +108,12 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.PaymentsTable do
   defp format_status("disputed"), do: dgettext("dashboard_payments", "Disputed")
   defp format_status("pending"), do: dgettext("dashboard_payments", "Pending")
   defp format_status("failed"), do: dgettext("dashboard_payments", "Failed")
+  defp format_status("card_saved"), do: dgettext("dashboard_payments", "Card saved")
+  defp format_status("charge_processing"), do: dgettext("dashboard_payments", "Charge processing")
+  defp format_status("charge_failed"), do: dgettext("dashboard_payments", "Charge failed")
+
+  defp format_status("action_required"),
+    do: dgettext("dashboard_payments", "Customer action required")
+
   defp format_status(other), do: other
 end

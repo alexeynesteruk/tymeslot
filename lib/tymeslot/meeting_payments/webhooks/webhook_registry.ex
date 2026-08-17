@@ -14,6 +14,8 @@ defmodule Tymeslot.MeetingPayments.Webhooks.WebhookRegistry do
     ChargeRefunded,
     CheckoutSessionCompleted,
     CheckoutSessionExpired,
+    PaymentIntentPaymentFailed,
+    PaymentIntentSucceeded,
     SetupIntentSetupFailed,
     SetupIntentSucceeded
   }
@@ -23,6 +25,8 @@ defmodule Tymeslot.MeetingPayments.Webhooks.WebhookRegistry do
     "checkout.session.expired" => CheckoutSessionExpired,
     "setup_intent.succeeded" => SetupIntentSucceeded,
     "setup_intent.setup_failed" => SetupIntentSetupFailed,
+    "payment_intent.succeeded" => PaymentIntentSucceeded,
+    "payment_intent.payment_failed" => PaymentIntentPaymentFailed,
     "charge.refunded" => ChargeRefunded,
     "charge.dispute.created" => ChargeDisputeCreated,
     "charge.dispute.closed" => ChargeDisputeClosed,

@@ -274,6 +274,19 @@ defmodule TymeslotWeb.Components.Dashboard.Meetings.MeetingListComponents do
         </div>
 
         <div class="flex lg:flex-col gap-3 shrink-0 lg:w-[160px]">
+          <button
+            :if={
+              @meeting.status == "confirmed" && Helpers.past_meeting?(@meeting) &&
+                map_size(@meeting.service_snapshot) > 0
+            }
+            type="button"
+            class="btn-primary py-3 px-4 text-token-sm w-full"
+            phx-click="show_complete_modal"
+            phx-value-id={@meeting.id}
+            phx-target={@target}
+          >
+            Mark completed
+          </button>
           <div
             :if={@meeting.status != "cancelled" && !Helpers.past_meeting?(@meeting)}
             class="contents"

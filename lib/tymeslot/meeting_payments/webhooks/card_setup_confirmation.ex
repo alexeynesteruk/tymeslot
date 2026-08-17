@@ -140,7 +140,8 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CardSetupConfirmation do
       Map.reject(
         %{
           status: "card_saved",
-          stripe_setup_intent_id: payment.stripe_setup_intent_id || attrs[:stripe_setup_intent_id],
+          stripe_setup_intent_id:
+            payment.stripe_setup_intent_id || attrs[:stripe_setup_intent_id],
           stripe_customer_id: attrs[:stripe_customer_id],
           stripe_payment_method_id: attrs[:stripe_payment_method_id],
           last_event_id: attrs[:event_id]

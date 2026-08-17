@@ -66,7 +66,14 @@ both remotes were fetched instead of creating a duplicate clone.
   processed-event ledger. Calendar and email enqueue independently after
   confirmation. Event types stay inactive. No ZIPs are seeded. Production
   booking stays off.
-- Task 7 completion, manual charge, and recovery: not started.
+- Task 7 completion, deferred charges, and recovery: implemented locally on
+  2026-08-17. Only the owning host can complete a confirmed direct-service
+  meeting or reserve its immutable snapshot charge. Stripe execution occurs
+  outside the reservation transaction with one attempt-specific idempotency
+  key and no automatic decline retry. PaymentIntent and recovery webhooks are
+  monotonic, recovery uses Stripe-hosted Checkout, refunds require domain-layer
+  ownership, and dashboard controls never accept an editable charge amount.
+  Event types remain inactive. No ZIPs are seeded. Production booking stays off.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 
@@ -108,16 +115,15 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 6 is complete locally on `feat/mpt-deferred-payments` and that SHA is
-running loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
+Task 7 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
-exist. Do not activate production booking or seed ZIPs. Next host work is
-Object Storage backups or Task 7 product work. Website booking URLs stay
-off.
+exist. Do not activate production booking or seed ZIPs. Next product work is
+Task 8 private rescheduling. Website booking URLs stay off.
 
 ## Production blockers
 
-- Deferred domain and operator workflows are not implemented.
+- Private rescheduling and included follow-up workflows are not implemented.
 - Concurrency, webhook, security, and browser gates have not run.
 - ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
 - Anna has not supplied all production booking and authorization values.

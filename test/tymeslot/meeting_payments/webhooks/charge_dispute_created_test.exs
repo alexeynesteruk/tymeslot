@@ -8,6 +8,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreatedTest do
   import Tymeslot.Factory
 
   alias Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreated
+  alias Tymeslot.MeetingPayments.BookingPaymentAudits
   alias Tymeslot.Repo
   alias Tymeslot.Workers.SendChargeDisputeOpened
 
@@ -27,6 +28,9 @@ defmodule Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreatedTest do
       reloaded = Repo.reload!(bp)
       assert reloaded.status == "disputed"
       assert reloaded.last_event_id == "evt_DISPUTE"
+
+      assert [%{action: "dispute_created", stripe_object_id: "ch_DISPUTED"}] =
+               BookingPaymentAudits.list_for_payment(bp.id)
     end
 
     test "preserves refunded_amount_cents on a partially_refunded booking_payment" do

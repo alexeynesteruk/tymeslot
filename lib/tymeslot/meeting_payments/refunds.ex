@@ -105,9 +105,32 @@ defmodule Tymeslot.MeetingPayments.Refunds do
 
   def parse_refund_amount(_payment, _params), do: {:error, :choose_type}
 
+  def issue_refund(payment_or_id, amount_or_actor, reason_or_amount \\ nil)
+
+  @spec issue_refund(Ecto.UUID.t(), pos_integer(), pos_integer()) ::
+          {:ok, BookingPaymentSchema.t()}
+          | {:error, refund_error() | :not_authorized | :not_found}
+  def issue_refund(payment_id, actor_user_id, amount_cents)
+      when is_binary(payment_id) and is_integer(actor_user_id) and is_integer(amount_cents) do
+    Repo.transaction(fn ->
+      with {:ok, locked} <- BookingPaymentQueries.get_for_update(payment_id),
+           :ok <- authorize(locked, actor_user_id),
+           :ok <- validate_within_window(locked),
+           :ok <- validate_amount(locked, amount_cents),
+           :ok <- validate_charge(locked),
+           {:ok, _stripe_refund} <- create_stripe_refund(locked, amount_cents, nil),
+           {:ok, updated_payment} <- update_payment_after_refund(locked, amount_cents) do
+        enqueue_refund_email(updated_payment)
+        updated_payment
+      else
+        {:error, rollback_reason} -> Repo.rollback(rollback_reason)
+      end
+    end)
+  end
+
   @spec issue_refund(BookingPaymentSchema.t(), pos_integer(), String.t() | nil) ::
           {:ok, BookingPaymentSchema.t()} | {:error, refund_error()}
-  def issue_refund(payment, amount_cents, reason \\ nil) do
+  def issue_refund(payment, amount_cents, reason) do
     # Run the full validate → Stripe call → DB update sequence inside a
     # serialised transaction with a row lock so that two concurrent host
     # clicks cannot both pass validation against stale `refunded_amount_cents`
@@ -131,6 +154,9 @@ defmodule Tymeslot.MeetingPayments.Refunds do
       end
     end)
   end
+
+  defp authorize(%{host_user_id: actor_user_id}, actor_user_id), do: :ok
+  defp authorize(_payment, _actor_user_id), do: {:error, :not_authorized}
 
   defp validate_within_window(%{paid_at: nil}), do: {:error, :not_paid}
 
