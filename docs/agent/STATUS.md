@@ -32,6 +32,11 @@ both remotes were fetched instead of creating a duplicate clone.
   are rejected, valid values survive recoverable errors, and generic meeting
   types keep host-authored custom fields. No phone or meeting-mode fields were
   added. Approval-first IDs have no Tymeslot intake route.
+- Task 3 spec gap closed on 2026-08-17: the booking wizard now loads MPT
+  intake questions through `Intake.definitions_for_meeting_type/1`. Direct
+  services get the questions step even when host `custom_fields` are empty.
+  Name and email stay on the existing booking form. Generic types with empty
+  custom fields still skip questions. Production booking stays off.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -61,11 +66,11 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. Task 3 focused suites pass 32 tests:
-intake 10, custom-field validator 14, booking submission handler 5, and
-booking config 3. Formatting and `git diff --check` pass. Date-boundary
-failures in the upstream calendar and scheduling tests remain repaired. The
-complete gate has not been re-run in this change.
+17.11 with explicit Homebrew paths. The Task 3 UI-wiring focused suites pass
+41 tests: intake 12, state-machine helpers 10, custom-field validator 14, and
+booking submission handler 5. Formatting and `git diff --check` pass.
+Date-boundary failures in the upstream calendar and scheduling tests remain
+repaired. The complete gate has not been re-run in this change.
 
 ## Next safe action
 
