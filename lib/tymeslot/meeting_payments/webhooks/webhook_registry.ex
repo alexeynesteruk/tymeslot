@@ -13,12 +13,16 @@ defmodule Tymeslot.MeetingPayments.Webhooks.WebhookRegistry do
     ChargeDisputeCreated,
     ChargeRefunded,
     CheckoutSessionCompleted,
-    CheckoutSessionExpired
+    CheckoutSessionExpired,
+    SetupIntentSetupFailed,
+    SetupIntentSucceeded
   }
 
   @handlers %{
     "checkout.session.completed" => CheckoutSessionCompleted,
     "checkout.session.expired" => CheckoutSessionExpired,
+    "setup_intent.succeeded" => SetupIntentSucceeded,
+    "setup_intent.setup_failed" => SetupIntentSetupFailed,
     "charge.refunded" => ChargeRefunded,
     "charge.dispute.created" => ChargeDisputeCreated,
     "charge.dispute.closed" => ChargeDisputeClosed,

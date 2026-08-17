@@ -35,7 +35,13 @@ defmodule Tymeslot.MeetingPayments.Telemetry do
     "failed" => :failed,
     "refunded" => :refunded,
     "partially_refunded" => :partially_refunded,
-    "disputed" => :disputed
+    "disputed" => :disputed,
+    "setup_pending" => :setup_pending,
+    "card_saved" => :card_saved,
+    "charge_processing" => :charge_processing,
+    "charge_failed" => :charge_failed,
+    "action_required" => :action_required,
+    "cancelled" => :cancelled
   }
 
   @typedoc "Reason for a booking_payment status transition."
@@ -45,6 +51,8 @@ defmodule Tymeslot.MeetingPayments.Telemetry do
           | :webhook_charge_refunded
           | :webhook_dispute_created
           | :webhook_dispute_closed
+          | :webhook_setup_succeeded
+          | :webhook_setup_failed
           | :host_refund
           | :reconcile
 

@@ -7,8 +7,8 @@ Updated: 2026-08-17
 - Local checkout: `/Users/anesteruk/Documents/tymeslot`
 - Fork remote: `git@github.com:alexeynesteruk/tymeslot.git`
 - Upstream remote: `git@github.com:Tymeslot/tymeslot.git`
-- Branch: `feat/mpt-booking-guards`
-- `origin/main`: `4b336e6a` (Tasks 1-4 merged)
+- Branch: `feat/mpt-deferred-payments`
+- `origin/main`: `eab8ea89` (Tasks 1-5 merged)
 - Git SSH identity: `/Users/anesteruk/.ssh/mypawtrainer.com`
 
 The checkout already existed from the previous session. It was verified and
@@ -58,7 +58,15 @@ both remotes were fetched instead of creating a duplicate clone.
   inside the booking transaction. Real two-connection overlapping-slot races
   yield one `:ok` and one `:time_conflict`. Event types stay inactive. No
   ZIPs are seeded. Production booking stays off.
-- Deferred payment workflow: not started.
+- Task 6 deferred setup and durable Stripe webhooks: implemented locally
+  on 2026-08-17. Direct services use setup-mode Checkout, persist
+  `setup_pending` before the Stripe call, and confirm to `card_saved`
+  without creating a charge. SetupIntent and checkout events converge in
+  either order. Failed or expired setup releases the slot. Replay uses a
+  processed-event ledger. Calendar and email enqueue independently after
+  confirmation. Event types stay inactive. No ZIPs are seeded. Production
+  booking stays off.
+- Task 7 completion, manual charge, and recovery: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 

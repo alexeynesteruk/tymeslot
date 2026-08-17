@@ -23,7 +23,7 @@ defmodule Tymeslot.Meetings.MeetingState do
   # Combined with `exclude_voided_slots/1`, this is the query-side mirror of
   # `slot_void?/1`: a meeting only actually blocks a time window while it
   # holds one of these statuses AND has no pending reschedule request.
-  @occupying_statuses ["confirmed", "pending", "awaiting_payment"]
+  @occupying_statuses ["confirmed", "pending", "awaiting_payment", "awaiting_card"]
 
   @doc """
   Whether the meeting still represents a live booking a user should be able
@@ -116,4 +116,30 @@ defmodule Tymeslot.Meetings.MeetingState do
     |> where([m], m.status == "confirmed")
     |> exclude_voided_slots()
   end
+
+  @doc """
+  Whether the meeting currently occupies a bookable slot.
+  """
+  @spec occupies_slot?(map()) :: boolean()
+  def occupies_slot?(%{status: status} = meeting) do
+    status in @occupying_statuses and not slot_void?(meeting)
+  end
+
+  def occupies_slot?(_meeting), do: false
+
+  @spec confirmed?(map()) :: boolean()
+  def confirmed?(%{status: "confirmed"}), do: true
+  def confirmed?(_meeting), do: false
+
+  @spec completed?(map()) :: boolean()
+  def completed?(%{status: "completed"}), do: true
+  def completed?(_meeting), do: false
+
+  @spec expired?(map()) :: boolean()
+  def expired?(%{status: "expired"}), do: true
+  def expired?(_meeting), do: false
+
+  @spec cancelled?(map()) :: boolean()
+  def cancelled?(%{status: "cancelled"}), do: true
+  def cancelled?(_meeting), do: false
 end

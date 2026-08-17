@@ -289,6 +289,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     "completed",
     "reschedule_requested",
     "awaiting_payment",
+    "awaiting_card",
     "expired"
   ]
 

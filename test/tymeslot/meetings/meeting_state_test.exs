@@ -22,11 +22,34 @@ defmodule Tymeslot.Meetings.MeetingStateTest do
       assert MeetingState.active?(%{status: "reschedule_requested"})
     end
 
-    test "false for cancelled, completed, awaiting_payment, and expired" do
+    test "false for cancelled, completed, awaiting_payment, awaiting_card, and expired" do
       refute MeetingState.active?(%{status: "cancelled"})
       refute MeetingState.active?(%{status: "completed"})
       refute MeetingState.active?(%{status: "awaiting_payment"})
+      refute MeetingState.active?(%{status: "awaiting_card"})
       refute MeetingState.active?(%{status: "expired"})
+    end
+  end
+
+  describe "deferred card-setup occupancy" do
+    test "awaiting_card occupies the slot like awaiting_payment" do
+      assert MeetingState.occupies_slot?(%{status: "awaiting_card", reschedule_requested_at: nil})
+
+      assert MeetingState.occupies_slot?(%{
+               status: "awaiting_payment",
+               reschedule_requested_at: nil
+             })
+
+      refute MeetingState.occupies_slot?(%{status: "expired", reschedule_requested_at: nil})
+      refute MeetingState.occupies_slot?(%{status: "cancelled", reschedule_requested_at: nil})
+    end
+
+    test "confirmed, completed, expired, and cancelled remain distinct states" do
+      assert MeetingState.confirmed?(%{status: "confirmed"})
+      assert MeetingState.completed?(%{status: "completed"})
+      assert MeetingState.expired?(%{status: "expired"})
+      assert MeetingState.cancelled?(%{status: "cancelled"})
+      refute MeetingState.confirmed?(%{status: "awaiting_card"})
     end
   end
 

@@ -31,6 +31,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
           service_price_cents: integer() | nil,
           service_currency: String.t() | nil,
           event_type_version: pos_integer() | nil,
+          payment_timing: String.t() | nil,
           is_archived: boolean(),
           max_bookings_per_day: pos_integer() | nil,
           max_bookings_per_week: pos_integer() | nil,
@@ -65,6 +66,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     field(:service_price_cents, :integer)
     field(:service_currency, :string)
     field(:event_type_version, :integer)
+    field(:payment_timing, :string)
     field(:is_archived, :boolean, default: false)
     field(:max_bookings_per_day, :integer)
     field(:max_bookings_per_week, :integer)
@@ -150,6 +152,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
       :service_price_cents,
       :service_currency,
       :event_type_version,
+      :payment_timing,
       :is_archived,
       :max_bookings_per_day,
       :max_bookings_per_week,
@@ -171,6 +174,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     |> validate_reminder_config()
     |> validate_payment_fields(opts)
     |> validate_service_fields()
+    |> validate_payment_timing()
     |> reject_general_service_configuration_update(meeting_type)
     |> unique_constraint([:user_id, :name],
       message: "You already have a meeting type with this name"
@@ -183,6 +187,20 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     |> foreign_key_constraint(:video_integration_id)
     |> foreign_key_constraint(:calendar_integration_id)
     |> foreign_key_constraint(:availability_schedule_id)
+  end
+
+  defp validate_payment_timing(changeset) do
+    case get_field(changeset, :payment_timing) do
+      nil ->
+        changeset
+
+      timing ->
+        if Tymeslot.MeetingPayments.PaymentTiming.valid?(timing) do
+          changeset
+        else
+          add_error(changeset, :payment_timing, "is invalid")
+        end
+    end
   end
 
   defp validate_service_fields(changeset) do

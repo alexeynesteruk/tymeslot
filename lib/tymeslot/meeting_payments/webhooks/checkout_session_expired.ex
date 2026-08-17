@@ -64,10 +64,24 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
 
   defp lookup_by_session(_object), do: nil
 
+  defp run(%{status: status}, _event_id)
+       when status in [
+              "card_saved",
+              "charge_processing",
+              "charge_failed",
+              "action_required",
+              "paid",
+              "partially_refunded",
+              "refunded",
+              "disputed"
+            ] do
+    :ok
+  end
+
   defp run(payment, event_id) do
     result =
       Repo.transaction(fn ->
-        with {:ok, _bp} <- mark_failed(payment, event_id),
+        with {:ok, _bp} <- mark_terminal(payment, event_id),
              :ok <- maybe_expire_meeting(payment.meeting_id) do
           :ok
         else
@@ -91,8 +105,14 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
     Phoenix.PubSub.broadcast(Tymeslot.PubSub, "meeting_payment:#{meeting_id}", :expired)
   end
 
-  defp mark_failed(payment, event_id) do
-    case BookingPaymentQueries.update(payment, %{status: "failed", last_event_id: event_id}) do
+  defp mark_terminal(%{payment_timing: "deferred", status: "setup_pending"} = payment, event_id) do
+    update_payment(payment, "cancelled", event_id)
+  end
+
+  defp mark_terminal(payment, event_id), do: update_payment(payment, "failed", event_id)
+
+  defp update_payment(payment, status, event_id) do
+    case BookingPaymentQueries.update(payment, %{status: status, last_event_id: event_id}) do
       {:ok, updated} = result ->
         Telemetry.emit_status_changed(payment.status, updated.status, :webhook_expired)
         result
@@ -106,7 +126,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
 
   defp maybe_expire_meeting(meeting_id) do
     case MeetingQueries.get_meeting(meeting_id) do
-      {:ok, %{status: "awaiting_payment"} = meeting} ->
+      {:ok, %{status: status} = meeting} when status in ["awaiting_payment", "awaiting_card"] ->
         case MeetingQueries.update_meeting(meeting, %{status: "expired"}) do
           {:ok, _meeting} -> :ok
           {:error, _changeset} = err -> err

@@ -45,6 +45,26 @@ defmodule Tymeslot.MeetingPayments.BookingPaymentQueries do
   def by_payment_intent_id(payment_intent_id),
     do: Repo.get_by(BookingPaymentSchema, stripe_payment_intent_id: payment_intent_id)
 
+  @spec by_setup_intent_id(String.t()) :: BookingPaymentSchema.t() | nil
+  def by_setup_intent_id(setup_intent_id),
+    do: Repo.get_by(BookingPaymentSchema, stripe_setup_intent_id: setup_intent_id)
+
+  @spec list_stale_setup_pending(DateTime.t(), keyword()) :: [BookingPaymentSchema.t()]
+  def list_stale_setup_pending(%DateTime{} = cutoff, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 200)
+
+    query =
+      from b in BookingPaymentSchema,
+        where:
+          b.status == "setup_pending" and
+            b.inserted_at <= ^cutoff and
+            not is_nil(b.stripe_checkout_session_id),
+        order_by: [asc: b.inserted_at],
+        limit: ^limit
+
+    Repo.all(query)
+  end
+
   @doc """
   Lists all `pending` booking payments for a host that still carry a
   `stripe_checkout_session_id`, with the associated meeting preloaded.

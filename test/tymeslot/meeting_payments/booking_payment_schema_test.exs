@@ -99,4 +99,144 @@ defmodule Tymeslot.MeetingPayments.BookingPaymentSchemaTest do
       end
     end
   end
+
+  describe "deferred setup states and immutable snapshot" do
+    @snapshot %{
+      "service_id" => "online-consultation",
+      "service_name" => "Online behavior consultation",
+      "amount_cents" => 14_000,
+      "currency" => "usd",
+      "duration_minutes" => 90,
+      "delivery_mode" => "virtual",
+      "event_type_version" => 1
+    }
+
+    @deferred_statuses ~w(
+      setup_pending card_saved charge_processing charge_failed
+      action_required paid partially_refunded refunded disputed cancelled
+    )
+
+    test "accepts the deferred payment lifecycle statuses" do
+      Enum.each(@deferred_statuses, fn status ->
+        cs =
+          BookingPaymentSchema.create_changeset(
+            Map.merge(@valid_attrs, %{
+              status: status,
+              payment_timing: "deferred",
+              service_snapshot: @snapshot,
+              amount_cents: 14_000,
+              currency: "usd"
+            })
+          )
+
+        assert cs.valid?, "expected #{status} to be valid, got #{inspect(errors_on(cs))}"
+      end)
+    end
+
+    test "deferred payments require a service snapshot, Stripe account, amount, and currency" do
+      cs =
+        BookingPaymentSchema.create_changeset(
+          Map.merge(@valid_attrs, %{
+            payment_timing: "deferred",
+            status: "setup_pending",
+            service_snapshot: @snapshot
+          })
+        )
+
+      assert cs.valid?
+
+      refute BookingPaymentSchema.create_changeset(
+               Map.merge(@valid_attrs, %{
+                 payment_timing: "deferred",
+                 status: "setup_pending",
+                 service_snapshot: %{}
+               })
+             ).valid?
+
+      refute BookingPaymentSchema.create_changeset(
+               Map.merge(Map.delete(@valid_attrs, :stripe_account_id), %{
+                 payment_timing: "deferred",
+                 status: "setup_pending",
+                 service_snapshot: @snapshot
+               })
+             ).valid?
+    end
+
+    test "copies the meeting snapshot and rejects later mutation" do
+      {:ok, payment} =
+        Map.merge(@valid_attrs, %{
+          payment_timing: "deferred",
+          status: "setup_pending",
+          service_snapshot: @snapshot,
+          amount_cents: 14_000,
+          currency: "usd"
+        })
+        |> BookingPaymentSchema.create_changeset()
+        |> Repo.insert()
+
+      assert payment.payment_timing == "deferred"
+      assert payment.service_snapshot["service_id"] == "online-consultation"
+      assert payment.service_snapshot["amount_cents"] == 14_000
+      assert payment.service_snapshot["event_type_version"] == 1
+
+      updated =
+        BookingPaymentSchema.update_changeset(payment, %{
+          service_snapshot: Map.put(@snapshot, "amount_cents", 19_000)
+        })
+
+      refute updated.valid?
+      assert "cannot be changed after it is set" in errors_on(updated).service_snapshot
+    end
+
+    test "retains the original snapshot after the event type price changes" do
+      user = insert(:user)
+
+      meeting_type =
+        insert(:meeting_type,
+          user: user,
+          name: "Online behavior consultation",
+          duration_minutes: 90,
+          service_id: "online-consultation",
+          service_price_cents: 14_000,
+          service_currency: "usd",
+          event_type_version: 1,
+          is_active: true
+        )
+
+      meeting =
+        insert(:meeting,
+          organizer_user_id: user.id,
+          meeting_type_id: meeting_type.id,
+          duration: 90,
+          status: "awaiting_card",
+          service_snapshot: @snapshot
+        )
+
+      {:ok, payment} =
+        Map.merge(@valid_attrs, %{
+          host_user_id: user.id,
+          meeting_id: meeting.id,
+          payment_timing: "deferred",
+          status: "setup_pending",
+          service_snapshot: meeting.service_snapshot,
+          amount_cents: meeting.service_snapshot["amount_cents"],
+          currency: meeting.service_snapshot["currency"]
+        })
+        |> BookingPaymentSchema.create_changeset()
+        |> Repo.insert()
+
+      {:ok, _updated_type} =
+        meeting_type
+        |> Ecto.Changeset.change(%{service_price_cents: 15_000, event_type_version: 2})
+        |> Repo.update()
+
+      reloaded = Repo.get!(BookingPaymentSchema, payment.id)
+      assert reloaded.service_snapshot["amount_cents"] == 14_000
+      assert reloaded.service_snapshot["event_type_version"] == 1
+      assert reloaded.service_snapshot["service_id"] == "online-consultation"
+      assert reloaded.service_snapshot["duration_minutes"] == 90
+      assert reloaded.service_snapshot["currency"] == "usd"
+      assert reloaded.service_snapshot["delivery_mode"] == "virtual"
+    end
+  end
 end

@@ -32,6 +32,7 @@ defmodule Tymeslot.MeetingPayments do
 
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MeetingPayments.BookingPaymentSchema
+  alias Tymeslot.MeetingPayments.CardSetups
   alias Tymeslot.MeetingPayments.CheckoutSessions
   alias Tymeslot.MeetingPayments.ConnectAccountQueries
   alias Tymeslot.MeetingPayments.ConnectAccounts
@@ -263,6 +264,12 @@ defmodule Tymeslot.MeetingPayments do
           {:ok, CheckoutSessions.create_result()} | {:error, term()}
   defdelegate create_checkout_session(meeting),
     to: CheckoutSessions,
+    as: :create_session_for_booking
+
+  @spec create_setup_session(Tymeslot.Meetings.MeetingSchema.t()) ::
+          {:ok, CardSetups.create_result()} | {:error, term()}
+  defdelegate create_setup_session(meeting),
+    to: CardSetups,
     as: :create_session_for_booking
 
   # ---------------------------------------------------------------------------

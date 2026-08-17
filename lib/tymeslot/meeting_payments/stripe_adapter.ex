@@ -20,6 +20,8 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter do
               {:ok, map()} | {:error, term()}
   @callback create_checkout_session(params :: map(), opts :: keyword()) ::
               {:ok, map()} | {:error, term()}
+  @callback create_setup_checkout_session(params :: map(), opts :: keyword()) ::
+              {:ok, map()} | {:error, term()}
   @callback retrieve_checkout_session(session_id :: String.t(), opts :: keyword()) ::
               {:ok, map()} | {:error, term()}
   @callback retrieve_payment_intent(intent_id :: String.t(), opts :: keyword()) ::
@@ -60,6 +62,13 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter do
   def create_checkout_session(params, opts \\ []) do
     Telemetry.span_stripe(:create_checkout_session, opts[:connect_account], fn ->
       impl().create_checkout_session(params, opts)
+    end)
+  end
+
+  @spec create_setup_checkout_session(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_setup_checkout_session(params, opts \\ []) do
+    Telemetry.span_stripe(:create_setup_checkout_session, opts[:connect_account], fn ->
+      impl().create_setup_checkout_session(params, opts)
     end)
   end
 
@@ -179,7 +188,14 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter.Stripity do
   def create_checkout_session(params, opts), do: CheckoutSession.create(params, opts)
 
   @impl StripeAdapter
-  def retrieve_checkout_session(id, opts), do: CheckoutSession.retrieve(id, %{}, opts)
+  def create_setup_checkout_session(params, opts), do: CheckoutSession.create(params, opts)
+
+  @impl StripeAdapter
+  def retrieve_checkout_session(id, opts) do
+    {expand, request_opts} = Keyword.pop(opts, :expand, [])
+    params = if expand == [], do: %{}, else: %{expand: expand}
+    CheckoutSession.retrieve(id, params, request_opts)
+  end
 
   @impl StripeAdapter
   def retrieve_payment_intent(id, opts),

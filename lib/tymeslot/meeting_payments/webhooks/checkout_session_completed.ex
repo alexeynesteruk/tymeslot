@@ -19,6 +19,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
   alias Tymeslot.MeetingPayments.BookingPaymentSchema
   alias Tymeslot.MeetingPayments.StripeAdapter
   alias Tymeslot.MeetingPayments.Telemetry
+  alias Tymeslot.MeetingPayments.Webhooks.CardSetupConfirmation
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.Notifications.Events
   alias Tymeslot.Repo
@@ -31,7 +32,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
     Telemetry.span_webhook(@event_type, fn -> do_handle(event) end)
   end
 
-  defp do_handle(%{"id" => event_id, "data" => %{"object" => object}}) do
+  defp do_handle(%{"id" => event_id, "data" => %{"object" => object}} = event) do
     case lookup_payment(object) do
       nil ->
         Logger.info("checkout.session.completed: no booking_payment matched",
@@ -46,7 +47,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
         {:ok, :idempotent_replay}
 
       payment ->
-        classify(run(payment, event_id, object))
+        classify(run(payment, event_id, event, object))
     end
   end
 
@@ -68,7 +69,19 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
 
   defp lookup_by_session(_object), do: nil
 
-  defp run(payment, event_id, object) do
+  defp run(%{payment_timing: "deferred"} = payment, event_id, event, object) do
+    CardSetupConfirmation.apply(payment, %{
+      event_id: event_id,
+      event_type: @event_type,
+      stripe_account_id: event["account"],
+      stripe_setup_intent_id: setup_intent_id(object),
+      meeting_id: object["client_reference_id"],
+      service_id: get_in(object, ["metadata", "service_id"]),
+      service_version: get_in(object, ["metadata", "service_version"])
+    })
+  end
+
+  defp run(payment, event_id, _event, object) do
     case Repo.transaction(fn -> run_in_transaction(payment, event_id, object) end) do
       {:ok, {:advanced, paid, meeting}} ->
         # Backfill stripe_charge_id outside the transaction — this requires a
@@ -214,6 +227,10 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
   # clobbering it back to `paid`.
   defp paid_status("disputed"), do: "disputed"
   defp paid_status(_status), do: "paid"
+
+  defp setup_intent_id(%{"setup_intent" => %{"id" => id}}) when is_binary(id), do: id
+  defp setup_intent_id(%{"setup_intent" => id}) when is_binary(id), do: id
+  defp setup_intent_id(_object), do: nil
 
   defp emit_payment_succeeded(paid, meeting) do
     :telemetry.execute(

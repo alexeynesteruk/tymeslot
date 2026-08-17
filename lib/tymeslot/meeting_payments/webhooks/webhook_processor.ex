@@ -18,6 +18,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.WebhookProcessor do
 
   require Logger
 
+  alias Tymeslot.MeetingPayments.ProcessedStripeEvents
   alias Tymeslot.MeetingPayments.StripeAdapter
   alias Tymeslot.MeetingPayments.Webhooks.WebhookRegistry
   alias Tymeslot.Utils.MapKeys
@@ -40,6 +41,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.WebhookProcessor do
 
   defp dispatch(event) do
     type = MapKeys.get(event, :type)
+    event_id = MapKeys.get(event, :id)
 
     case WebhookRegistry.handler_for(type) do
       nil ->
@@ -47,12 +49,47 @@ defmodule Tymeslot.MeetingPayments.Webhooks.WebhookProcessor do
         :ok
 
       handler ->
-        Logger.info("Dispatching Connect webhook event",
+        process_handled(event, event_id, type, handler)
+    end
+  end
+
+  defp process_handled(event, event_id, type, handler) when is_binary(event_id) do
+    case ProcessedStripeEvents.claim(event_id, type) do
+      {:ok, :duplicate} ->
+        Logger.info("Ignoring duplicate Connect webhook event",
           event_type: type,
-          event_id: MapKeys.get(event, :id)
+          event_id: event_id
         )
 
-        handler.handle(event)
+        :ok
+
+      {:ok, :claimed} ->
+        Logger.info("Dispatching Connect webhook event", event_type: type, event_id: event_id)
+        finalize_claim(event_id, handler.handle(event))
+
+      {:error, reason} ->
+        Logger.error("Failed to claim Connect webhook event",
+          event_type: type,
+          event_id: event_id,
+          reason: inspect(reason)
+        )
+
+        {:error, reason}
     end
+  end
+
+  defp process_handled(event, _event_id, type, handler) do
+    Logger.info("Dispatching Connect webhook event without durable claim", event_type: type)
+    handler.handle(event)
+  end
+
+  defp finalize_claim(event_id, :ok) do
+    _result = ProcessedStripeEvents.complete(event_id)
+    :ok
+  end
+
+  defp finalize_claim(event_id, {:error, reason} = error) do
+    _result = ProcessedStripeEvents.fail(event_id, inspect(reason))
+    error
   end
 end

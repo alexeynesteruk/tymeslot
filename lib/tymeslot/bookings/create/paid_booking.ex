@@ -30,6 +30,7 @@ defmodule Tymeslot.Bookings.Create.PaidBooking do
   require Logger
 
   alias Tymeslot.MeetingPayments
+  alias Tymeslot.MeetingPayments.PaymentTiming
   alias Tymeslot.Meetings.Scheduling
 
   @typedoc "The successful outcome: a held slot plus somewhere to go and pay."
@@ -53,11 +54,11 @@ defmodule Tymeslot.Bookings.Create.PaidBooking do
     classify_error = Keyword.fetch!(callbacks, :classify_error)
     on_created = Keyword.fetch!(callbacks, :on_created)
 
-    paid_attrs = Map.put(meeting_attrs, :status, "awaiting_payment")
+    paid_attrs = Map.put(meeting_attrs, :status, hold_status(booking_data))
 
     with {:ok, meeting} <- create_meeting.(paid_attrs),
          {:ok, _guests} <- guests_or_expire(meeting, booking_data, create_guests),
-         {:ok, %{checkout_url: url}} <- checkout_or_expire(meeting) do
+         {:ok, %{checkout_url: url}} <- checkout_or_expire(meeting, booking_data) do
       on_created.()
       {:ok, :payment_required, %{meeting: meeting, checkout_url: url}}
     else
@@ -76,8 +77,15 @@ defmodule Tymeslot.Bookings.Create.PaidBooking do
     end
   end
 
-  defp checkout_or_expire(meeting) do
-    case MeetingPayments.create_checkout_session(meeting) do
+  defp checkout_or_expire(meeting, booking_data) do
+    checkout =
+      if deferred_booking?(booking_data) do
+        &MeetingPayments.create_setup_session/1
+      else
+        &MeetingPayments.create_checkout_session/1
+      end
+
+    case checkout.(meeting) do
       {:ok, result} ->
         {:ok, result}
 
@@ -86,6 +94,15 @@ defmodule Tymeslot.Bookings.Create.PaidBooking do
         {:error, {:checkout_failed, reason}}
     end
   end
+
+  defp hold_status(booking_data) do
+    if deferred_booking?(booking_data), do: "awaiting_card", else: "awaiting_payment"
+  end
+
+  defp deferred_booking?(%{meeting_type: %{payment_timing: timing}}),
+    do: PaymentTiming.deferred?(timing)
+
+  defp deferred_booking?(_booking_data), do: false
 
   # Best-effort: the booking has already failed, and failing to expire it only
   # means the reconciliation sweep picks the slot up later instead of now.
