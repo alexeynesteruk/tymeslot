@@ -40,8 +40,10 @@ both remotes were fetched instead of creating a duplicate clone.
 - Unknown age is now accepted in the booking wizard. `dog_age` and
   `acquisition_age` are short_text. Wizard completion uses
   `Intake.validate_wizard_answers/2`, so a numeric age without a unit cannot
-  advance. Intake still requires a non-negative number plus unit, or
-  `unknown` without a unit. Production booking stays off.
+  advance. Failed completion stores field errors and jumps to the first
+  invalid question. Padded numeric ages are trimmed. LiveView coverage
+  walks discovery questions and proves a missing age unit stays on the
+  questions step. Production booking stays off.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -71,9 +73,10 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. The Task 3 wizard-completion suites pass 62 tests: intake 15,
+17.11 with explicit Homebrew paths. The Task 3 wizard-completion suites pass 65 tests: intake 15,
 state-machine helpers 10, custom-field validator 14, booking submission
-handler 5, and questions engine 18. Formatting and `git diff --check` pass.
+handler 5, questions engine 19, and MPT intake LiveView 2. Formatting and
+`git diff --check` pass.
 Date-boundary failures in the upstream calendar and scheduling tests remain
 repaired. The complete gate has not been re-run in this change.
 
