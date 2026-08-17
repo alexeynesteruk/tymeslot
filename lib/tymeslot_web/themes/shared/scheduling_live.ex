@@ -52,7 +52,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
 
       alias TymeslotWeb.Themes.Shared.StateMachineHelpers, as: StateMachine
 
-      alias Tymeslot.CustomFields
+      alias Tymeslot.MyPawTrainer.Intake
 
       alias TymeslotWeb.Themes.Shared.Components.ErrorComponent
       alias TymeslotWeb.Themes.Shared.CustomQuestions.Engine, as: QEngine
@@ -401,7 +401,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
         # reflects the latest custom field definitions for this meeting type. Only
         # re-init when definitions actually changed so back-navigation preserves answers.
         meeting_type = socket.assigns[:meeting_type] || %{}
-        defs = CustomFields.snapshot_for(meeting_type)
+        defs = Intake.definitions_for_meeting_type(meeting_type)
 
         engine =
           if defs != socket.assigns.engine.definitions,

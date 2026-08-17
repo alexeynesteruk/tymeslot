@@ -5,6 +5,7 @@ defmodule TymeslotWeb.Themes.Shared.StateMachineHelpers do
 
   alias Tymeslot.Availability.Calculate
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MyPawTrainer.Intake
 
   # `awaiting_payment` is a transitional state used by embedded paid
   # bookings: Stripe Checkout opens in a new tab and the iframe waits for
@@ -42,10 +43,12 @@ defmodule TymeslotWeb.Themes.Shared.StateMachineHelpers do
   the meeting type has at least one custom field, the default 4 otherwise.
   """
   @spec states_for(map()) :: map()
-  def states_for(%{custom_fields: defs}) when is_list(defs) and defs != [],
-    do: @states_with_questions
-
-  def states_for(_meeting_type), do: @default_states
+  def states_for(meeting_type) do
+    case Intake.definitions_for_meeting_type(meeting_type) do
+      [_ | _] -> @states_with_questions
+      _empty -> @default_states
+    end
+  end
 
   @doc """
   Checks if navigation to a target state is allowed based on the current state's step.

@@ -15,8 +15,8 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
 
   alias Tymeslot.Analytics
   alias Tymeslot.Bookings.SubmissionToken
-  alias Tymeslot.CustomFields
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MyPawTrainer.Intake
   alias Tymeslot.Profiles
   alias Tymeslot.Scheduling.ThemeFlow
   alias TymeslotWeb.Helpers.ClientIP
@@ -176,7 +176,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
         meeting_type ->
           # Re-initialise the engine with a fresh snapshot whenever the meeting type
           # changes so the `:questions` step always reflects the current custom fields.
-          defs = CustomFields.snapshot_for(meeting_type)
+          defs = Intake.definitions_for_meeting_type(meeting_type)
 
           socket
           |> assign(:meeting_type, meeting_type)
@@ -266,7 +266,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
       |> redirect(to: ~p"/#{socket.assigns[:username_context]}")
     else
       {:meeting_type, meeting_type} ->
-        defs = CustomFields.snapshot_for(meeting_type)
+        defs = Intake.definitions_for_meeting_type(meeting_type)
 
         socket
         |> assign(:meeting_type, meeting_type)

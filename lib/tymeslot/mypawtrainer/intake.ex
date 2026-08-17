@@ -29,6 +29,24 @@ defmodule Tymeslot.MyPawTrainer.Intake do
   @spec snapshot_for(String.t()) :: [map()]
   def snapshot_for(service_id), do: Definitions.for_service(direct_service!(service_id))
 
+  @booking_form_ids ~w(client_name email)
+
+  @spec question_snapshot_for(String.t()) :: [map()]
+  def question_snapshot_for(service_id) do
+    Enum.reject(snapshot_for(service_id), &(&1["id"] in @booking_form_ids))
+  end
+
+  @spec definitions_for_meeting_type(map()) :: [map()]
+  def definitions_for_meeting_type(%{service_id: service_id} = meeting_type) do
+    if ServiceCatalog.direct_bookable?(service_id) do
+      question_snapshot_for(service_id)
+    else
+      CustomFields.snapshot_for(meeting_type)
+    end
+  end
+
+  def definitions_for_meeting_type(meeting_type), do: CustomFields.snapshot_for(meeting_type)
+
   @spec validate(String.t(), map()) :: {:ok, map()} | {:error, %{String.t() => String.t()}}
   def validate(service_id, answers) when is_map(answers) do
     snapshot = snapshot_for(service_id)

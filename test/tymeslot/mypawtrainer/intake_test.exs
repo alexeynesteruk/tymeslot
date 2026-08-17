@@ -50,8 +50,62 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
       assert_raise ArgumentError, fn -> Intake.required_ids(service_id) end
       assert_raise ArgumentError, fn -> Intake.optional_ids(service_id) end
       assert_raise ArgumentError, fn -> Intake.snapshot_for(service_id) end
+      assert_raise ArgumentError, fn -> Intake.question_snapshot_for(service_id) end
       assert_raise ArgumentError, fn -> Intake.validate(service_id, %{}) end
     end
+  end
+
+  test "question_snapshot_for excludes name and email from the booking wizard" do
+    discovery = Intake.question_snapshot_for("discovery-call")
+    discovery_ids = Enum.map(discovery, & &1["id"])
+
+    refute "client_name" in discovery_ids
+    refute "email" in discovery_ids
+    assert "main_question" in discovery_ids
+    assert "dog_name" in discovery_ids
+    assert field(discovery, "dog_name")["required"] == false
+
+    full = Intake.question_snapshot_for("online-consultation")
+    full_ids = Enum.map(full, & &1["id"])
+
+    refute "client_name" in full_ids
+    refute "email" in full_ids
+    assert "dog_name" in full_ids
+    assert "breed_or_mix" in full_ids
+    assert "dog_age" in full_ids
+    assert "dog_sex" in full_ids
+    assert "spay_neuter_status" in full_ids
+    assert "origin" in full_ids
+    assert "acquisition_age" in full_ids
+    assert "main_concern" in full_ids
+    assert "brief_context" in full_ids
+    assert "desired_result" in full_ids
+
+    assert Intake.question_snapshot_for("in-home-consultation") == full
+  end
+
+  test "definitions_for_meeting_type uses intake questions for MPT and host fields for generic types" do
+    mpt = %{service_id: "online-consultation", custom_fields: []}
+    mpt_ids = Enum.map(Intake.definitions_for_meeting_type(mpt), & &1["id"])
+
+    refute "client_name" in mpt_ids
+    refute "email" in mpt_ids
+    assert "dog_name" in mpt_ids
+    assert "main_concern" in mpt_ids
+
+    host_field = %{
+      "id" => "host_note",
+      "type" => "short_text",
+      "label" => "Note",
+      "required" => false
+    }
+
+    generic = %{custom_fields: [host_field]}
+    generic_ids = Enum.map(Intake.definitions_for_meeting_type(generic), & &1["id"])
+    assert generic_ids == ["host_note"]
+
+    empty_generic = %{custom_fields: []}
+    assert Intake.definitions_for_meeting_type(empty_generic) == []
   end
 
   test "definitions include the approved sex, spay/neuter, and origin option maps" do

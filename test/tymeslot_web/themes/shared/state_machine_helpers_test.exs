@@ -11,6 +11,24 @@ defmodule TymeslotWeb.Themes.Shared.StateMachineHelpersTest do
                StateMachineHelpers.default_states()
     end
 
+    test "uses questions states for an MPT direct service with empty custom fields" do
+      states =
+        StateMachineHelpers.states_for(%{
+          service_id: "online-consultation",
+          custom_fields: []
+        })
+
+      assert states[:questions]
+      assert states[:schedule].next == :questions
+      assert states[:booking].prev == :questions
+    end
+
+    test "generic type with empty custom fields still uses the default 4-step map" do
+      states = StateMachineHelpers.states_for(%{service_id: nil, custom_fields: []})
+      assert states == StateMachineHelpers.default_states()
+      refute states[:questions]
+    end
+
     test "returns the 4-state map when custom_fields is absent" do
       assert StateMachineHelpers.states_for(%{}) ==
                StateMachineHelpers.default_states()
