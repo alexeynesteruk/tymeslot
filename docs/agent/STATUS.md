@@ -27,7 +27,11 @@ both remotes were fetched instead of creating a duplicate clone.
 - Service-configuration review: closed on 2026-08-17. The six-service catalog,
   immutable snapshots, owner-scoped lock, and idempotent direct-service
   provisioning match the Task 2 contract. No production event types are active.
-- Service-specific intake: next implementation task. Not started.
+- Service-specific intake: implemented locally on 2026-08-17. Discovery and
+  full consultation definitions reuse existing custom-field types. Extra keys
+  are rejected, valid values survive recoverable errors, and generic meeting
+  types keep host-authored custom fields. No phone or meeting-mode fields were
+  added. Approval-first IDs have no Tymeslot intake route.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -57,17 +61,15 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. Date-boundary failures in the upstream
-calendar and scheduling tests are repaired: initial calendar dates now use the
-profile timezone, quick-add ranges advance dates across midnight, and the
-shared booking helper advances weekly calendars. The exact three formerly
-failing files pass 42 tests, the nearby regression set passes 41 tests,
-compilation with warnings as errors and formatting pass, and the complete gate
-passes 12,192 tests with 104 excluded.
+17.11 with explicit Homebrew paths. Task 3 focused suites pass 32 tests:
+intake 10, custom-field validator 14, booking submission handler 5, and
+booking config 3. Formatting and `git diff --check` pass. Date-boundary
+failures in the upstream calendar and scheduling tests remain repaired. The
+complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Implement Task 3 service-specific intake in this worktree. Do not activate
+Implement Task 4 ZIP eligibility in this worktree. Do not activate
 production booking, seed ZIPs, or deploy the scheduler.
 
 ## Production blockers
