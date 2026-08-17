@@ -44,6 +44,13 @@ both remotes were fetched instead of creating a duplicate clone.
   invalid question. Padded numeric ages are trimmed. LiveView coverage
   walks discovery questions and proves a missing age unit stays on the
   questions step. Production booking stays off.
+- ZIP eligibility: implemented locally on 2026-08-17. Owner-scoped allowlist
+  and audit tables exist. `eligible?` accepts only active five-digit ZIPs.
+  Dashboard `/dashboard/service-area` is authenticated and never lists another
+  owner's ZIPs. In-home schedule requires a ZIP before times are fetched or
+  shown. Ineligible ZIP returns `service_area_unavailable`. Discovery and
+  online never consult the allowlist. No ZIPs are seeded. Production booking
+  stays off.
 - Deferred payment workflow: not started.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
@@ -73,17 +80,18 @@ disablement, and remaining host hardening. No scheduler is deployed.
 ## Toolchain checkpoint
 
 Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. The Task 3 wizard-completion suites pass 65 tests: intake 15,
-state-machine helpers 10, custom-field validator 14, booking submission
-handler 5, questions engine 19, and MPT intake LiveView 2. Formatting and
-`git diff --check` pass.
+17.11 with explicit Homebrew paths. Task 4 focused suites plus bookings
+regression passed 295 tests. Formatting and `git diff --check` pass.
 Date-boundary failures in the upstream calendar and scheduling tests remain
 repaired. The complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Implement Task 4 ZIP eligibility in this worktree. Do not activate
-production booking, seed ZIPs, or deploy the scheduler.
+Task 4 is complete locally. Do not activate production booking, seed ZIPs,
+or deploy the scheduler. Next planned work is Task 5 only after this branch
+is reviewed. TS-1 still needs a production-disabled deploy with inactive
+event types, which remains blocked by host hardening and the GitHub push
+key.
 
 ## Production blockers
 
