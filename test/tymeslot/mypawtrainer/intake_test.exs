@@ -52,6 +52,7 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
       assert_raise ArgumentError, fn -> Intake.snapshot_for(service_id) end
       assert_raise ArgumentError, fn -> Intake.question_snapshot_for(service_id) end
       assert_raise ArgumentError, fn -> Intake.validate(service_id, %{}) end
+      assert_raise ArgumentError, fn -> Intake.validate_question_answers(service_id, %{}) end
     end
   end
 
@@ -222,6 +223,47 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
     assert Map.has_key?(unit_errors, "dog_age_unit")
   end
 
+  test "wizard completion rejects numeric age without a unit and accepts unknown" do
+    questions = valid_questions()
+
+    assert {:ok, normalized} =
+             Intake.validate_wizard_answers(
+               %{service_id: "online-consultation", custom_fields: []},
+               questions
+             )
+
+    assert normalized["dog_age"] == "3"
+    refute Map.has_key?(normalized, "client_name")
+
+    unknown =
+      questions
+      |> Map.put("dog_age", "unknown")
+      |> Map.delete("dog_age_unit")
+      |> Map.put("acquisition_age", "unknown")
+      |> Map.delete("acquisition_age_unit")
+
+    assert {:ok, unknown_normalized} =
+             Intake.validate_question_answers("online-consultation", unknown)
+
+    assert unknown_normalized["dog_age"] == "unknown"
+
+    assert {:error, unit_errors} =
+             Intake.validate_wizard_answers(
+               %{service_id: "online-consultation", custom_fields: []},
+               Map.delete(questions, "dog_age_unit")
+             )
+
+    assert Map.has_key?(unit_errors, "dog_age_unit")
+
+    assert {:error, acquisition_errors} =
+             Intake.validate_question_answers(
+               "in-home-consultation",
+               Map.delete(questions, "acquisition_age_unit")
+             )
+
+    assert Map.has_key?(acquisition_errors, "acquisition_age_unit")
+  end
+
   test "rejects blank, unknown-type, and non-numeric ages" do
     assert {:error, blank} =
              Intake.validate("online-consultation", %{valid_full() | "dog_age" => ""})
@@ -281,6 +323,12 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
       "email" => "alex@example.com",
       "main_question" => "How can I make walks easier?"
     }
+  end
+
+  defp valid_questions do
+    valid_full()
+    |> Map.delete("client_name")
+    |> Map.delete("email")
   end
 
   defp valid_full do

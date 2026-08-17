@@ -338,7 +338,10 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
               end
 
             engine.current_index == last_index ->
-              case QEngine.validate_all(engine) do
+              case Intake.validate_wizard_answers(
+                     socket.assigns[:meeting_type] || %{},
+                     engine.answers
+                   ) do
                 {:ok, _answers} ->
                   {:noreply, transition_to(socket, :booking, %{})}
 

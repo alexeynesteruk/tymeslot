@@ -49,7 +49,28 @@ defmodule Tymeslot.MyPawTrainer.Intake do
 
   @spec validate(String.t(), map()) :: {:ok, map()} | {:error, %{String.t() => String.t()}}
   def validate(service_id, answers) when is_map(answers) do
-    snapshot = snapshot_for(service_id)
+    validate_snapshot(snapshot_for(service_id), answers)
+  end
+
+  @spec validate_question_answers(String.t(), map()) ::
+          {:ok, map()} | {:error, %{String.t() => String.t()}}
+  def validate_question_answers(service_id, answers) when is_map(answers) do
+    validate_snapshot(question_snapshot_for(service_id), answers)
+  end
+
+  @spec validate_wizard_answers(map(), map()) ::
+          {:ok, map()} | {:error, %{String.t() => String.t()}}
+  def validate_wizard_answers(meeting_type, answers) when is_map(answers) do
+    service_id = service_id(meeting_type)
+
+    if ServiceCatalog.direct_bookable?(service_id) do
+      validate_question_answers(service_id, answers)
+    else
+      CustomFields.validate_answers(CustomFields.snapshot_for(meeting_type), answers)
+    end
+  end
+
+  defp validate_snapshot(snapshot, answers) do
     extra_errors = Normalizer.extra_key_errors(snapshot, answers)
     age_errors = Normalizer.age_errors(snapshot, answers)
     prepared_answers = Normalizer.prepare_answers(answers)
@@ -62,6 +83,10 @@ defmodule Tymeslot.MyPawTrainer.Intake do
         {:error, field_errors |> Map.merge(extra_errors) |> Map.merge(age_errors)}
     end
   end
+
+  defp service_id(%{service_id: id}), do: id
+  defp service_id(%{"service_id" => id}), do: id
+  defp service_id(_meeting_type), do: nil
 
   defp finish(normalized, extra_errors, age_errors) do
     errors = Map.merge(extra_errors, age_errors)
