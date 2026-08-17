@@ -69,6 +69,19 @@ defmodule Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreatedTest do
       assert reloaded.last_event_id == "evt_REPLAY_DISP"
     end
 
+    test "locks and deduplicates an event delivered twice" do
+      bp =
+        insert(:booking_payment, status: "paid", amount_cents: 5000, stripe_charge_id: "ch_TWICE")
+
+      event = dispute_event("evt_TWICE", "ch_TWICE")
+
+      assert :ok = ChargeDisputeCreated.handle(event)
+      assert :ok = ChargeDisputeCreated.handle(event)
+
+      assert [%{action: "dispute_created"}] = BookingPaymentAudits.list_for_payment(bp.id)
+      assert Repo.reload!(bp).last_event_id == "evt_TWICE"
+    end
+
     test "returns :ok when no booking_payment matches the charge id" do
       event = dispute_event("evt_NOMATCH", "ch_GHOST")
       assert :ok = ChargeDisputeCreated.handle(event)

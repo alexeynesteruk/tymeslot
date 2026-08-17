@@ -74,6 +74,11 @@ both remotes were fetched instead of creating a duplicate clone.
   monotonic, recovery uses Stripe-hosted Checkout, refunds require domain-layer
   ownership, and dashboard controls never accept an editable charge amount.
   Event types remain inactive. No ZIPs are seeded. Production booking stays off.
+- Task 7 spec review fixes completed locally on 2026-08-17. The charge modal
+  includes appointment time, deferred PaymentIntent and recovery identities
+  fail closed, recovery completion verifies immutable amount and currency,
+  recovery expiry and disputes lock and deduplicate audit writes, and actorless
+  refunds reject deferred payments without changing generic upfront refunds.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 

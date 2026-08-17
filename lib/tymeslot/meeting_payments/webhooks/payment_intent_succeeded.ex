@@ -47,6 +47,9 @@ defmodule Tymeslot.MeetingPayments.Webhooks.PaymentIntentSucceeded do
     intent_id = intent["id"]
 
     cond do
+      not (is_binary(intent_id) and String.trim(intent_id) != "") ->
+        {:error, :payment_intent_mismatch}
+
       payment.stripe_account_id != account ->
         {:error, :payment_intent_mismatch}
 

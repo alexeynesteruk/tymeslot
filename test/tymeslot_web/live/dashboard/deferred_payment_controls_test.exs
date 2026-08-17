@@ -2,10 +2,25 @@ defmodule TymeslotWeb.Dashboard.DeferredPaymentControlsTest do
   use TymeslotWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
+  import Tymeslot.Factory
 
   alias TymeslotWeb.Components.Dashboard.Meetings.CompleteMeetingModal
   alias TymeslotWeb.Dashboard.PaymentsSettings.ChargeModal
   alias TymeslotWeb.Dashboard.PaymentsSettings.PaymentAudit
+
+  test "payment detail lookup preloads the appointment for the charge modal" do
+    meeting =
+      insert(:meeting,
+        start_time: ~U[2026-08-20 14:00:00Z],
+        end_time: ~U[2026-08-20 14:30:00Z]
+      )
+
+    payment = insert(:booking_payment, meeting: meeting)
+
+    loaded = Tymeslot.MeetingPayments.BookingPaymentQueries.get(payment.id)
+
+    assert loaded.meeting.start_time == ~U[2026-08-20 14:00:00Z]
+  end
 
   test "completion modal identifies attendee and appointment" do
     meeting = %Tymeslot.Meetings.MeetingSchema{
@@ -28,6 +43,7 @@ defmodule TymeslotWeb.Dashboard.DeferredPaymentControlsTest do
   test "charge modal shows immutable details and has no editable amount" do
     payment = %Tymeslot.MeetingPayments.BookingPaymentSchema{
       attendee_name: "Client Two",
+      meeting: %Tymeslot.Meetings.MeetingSchema{start_time: ~U[2026-08-20 14:00:00Z]},
       service_snapshot: %{
         "service_name" => "Online behavior consultation",
         "amount_cents" => 14_000,
@@ -40,6 +56,7 @@ defmodule TymeslotWeb.Dashboard.DeferredPaymentControlsTest do
 
     assert html =~ "Client Two"
     assert html =~ "Online behavior consultation"
+    assert html =~ "2026-08-20 14:00 UTC"
     assert html =~ "$140.00"
     refute html =~ ~s(name="amount")
   end

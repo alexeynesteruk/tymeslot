@@ -130,6 +130,9 @@ defmodule Tymeslot.MeetingPayments.Refunds do
 
   @spec issue_refund(BookingPaymentSchema.t(), pos_integer(), String.t() | nil) ::
           {:ok, BookingPaymentSchema.t()} | {:error, refund_error()}
+  def issue_refund(%{payment_timing: "deferred"}, _amount_cents, _reason),
+    do: {:error, :owner_required}
+
   def issue_refund(payment, amount_cents, reason) do
     # Run the full validate → Stripe call → DB update sequence inside a
     # serialised transaction with a row lock so that two concurrent host

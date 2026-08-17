@@ -4,6 +4,7 @@ defmodule Tymeslot.MeetingPayments.RecoverySessionsTest do
   import Mox
 
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
+  alias Tymeslot.MeetingPayments.BookingPaymentAudits
   alias Tymeslot.MeetingPayments.RecoverySessions
   alias Tymeslot.MeetingPayments.StripeAdapterMock
   alias Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted
@@ -101,25 +102,61 @@ defmodule Tymeslot.MeetingPayments.RecoverySessionsTest do
     assert BookingPaymentQueries.get(payment.id).status == "charge_failed"
     assert {:ok, %{status: "completed"}} = MeetingQueries.get_meeting(meeting.id)
 
+    event = recovery_event("evt_EXPIRE", "cs_EXPIRE", payment, nil, nil)
+    assert :ok = CheckoutSessionExpired.handle(event)
+    assert :ok = CheckoutSessionExpired.handle(event)
+
+    audits = BookingPaymentAudits.list_for_payment(payment.id)
+    assert Enum.count(audits, &(&1.action == "recovery_expired")) == 1
+    assert BookingPaymentQueries.get(payment.id).last_event_id == "evt_EXPIRE"
+
     late = recovery_event("evt_OLD", "cs_OLD", payment, "pi_OLD", "ch_OLD")
     assert :ok = CheckoutSessionCompleted.handle(late)
     assert BookingPaymentQueries.get(payment.id).status == "charge_failed"
   end
 
-  test "recovery completion remains failed when Stripe cannot provide a Charge ID" do
-    %{payment: payment} = failed_payment("charge_failed")
+  for charge_id <- [nil, ""] do
+    test "recovery completion remains failed when Stripe provides #{inspect(charge_id)} as Charge ID" do
+      %{payment: payment} = failed_payment("charge_failed")
 
-    payment =
-      Ecto.Changeset.change(payment, stripe_recovery_session_id: "cs_UNCERTAIN")
-      |> Tymeslot.Repo.update!()
+      payment =
+        Ecto.Changeset.change(payment, stripe_recovery_session_id: "cs_UNCERTAIN")
+        |> Tymeslot.Repo.update!()
 
-    expect(StripeAdapterMock, :retrieve_payment_intent, fn "pi_UNCERTAIN", _opts ->
-      {:error, :timeout}
-    end)
+      expect(StripeAdapterMock, :retrieve_payment_intent, fn "pi_UNCERTAIN", _opts ->
+        case unquote(charge_id) do
+          nil -> {:error, :timeout}
+          value -> {:ok, %{"id" => "pi_UNCERTAIN", "latest_charge" => value}}
+        end
+      end)
 
-    event = recovery_event("evt_UNCERTAIN", "cs_UNCERTAIN", payment, "pi_UNCERTAIN", nil)
-    assert {:error, :recovery_charge_unavailable} = CheckoutSessionCompleted.handle(event)
-    assert BookingPaymentQueries.get(payment.id).status == "charge_failed"
+      event = recovery_event("evt_UNCERTAIN", "cs_UNCERTAIN", payment, "pi_UNCERTAIN", nil)
+      assert {:error, :recovery_charge_unavailable} = CheckoutSessionCompleted.handle(event)
+      assert BookingPaymentQueries.get(payment.id).status == "charge_failed"
+    end
+  end
+
+  for {field, value} <- [{"amount_total", 18_999}, {"currency", "eur"}] do
+    test "recovery completion rejects a mismatched #{field}" do
+      %{meeting: meeting, payment: payment} = failed_payment("charge_failed")
+
+      payment =
+        payment
+        |> Ecto.Changeset.change(stripe_recovery_session_id: "cs_MISMATCH")
+        |> Tymeslot.Repo.update!()
+
+      expect(StripeAdapterMock, :retrieve_payment_intent, fn "pi_MISMATCH", _opts ->
+        {:ok, %{"id" => "pi_MISMATCH", "latest_charge" => "ch_MISMATCH"}}
+      end)
+
+      event =
+        recovery_event("evt_MISMATCH", "cs_MISMATCH", payment, "pi_MISMATCH", nil)
+        |> put_in(["data", "object", unquote(field)], unquote(value))
+
+      assert :ok = CheckoutSessionCompleted.handle(event)
+      assert BookingPaymentQueries.get(payment.id).status == "charge_failed"
+      assert {:ok, %{status: "completed"}} = MeetingQueries.get_meeting(meeting.id)
+    end
   end
 
   defp failed_payment(status) do
@@ -158,6 +195,8 @@ defmodule Tymeslot.MeetingPayments.RecoverySessionsTest do
           "mode" => "payment",
           "client_reference_id" => payment.meeting_id,
           "payment_intent" => intent_id,
+          "amount_total" => 19_000,
+          "currency" => "usd",
           "metadata" => %{
             "booking_payment_id" => payment.id,
             "meeting_id" => payment.meeting_id,

@@ -27,7 +27,12 @@ defmodule Tymeslot.MeetingPayments.BookingPaymentQueries do
   end
 
   @spec get(Ecto.UUID.t()) :: BookingPaymentSchema.t() | nil
-  def get(id), do: Repo.get(BookingPaymentSchema, id)
+  def get(id) do
+    case Repo.get(BookingPaymentSchema, id) do
+      nil -> nil
+      payment -> Repo.preload(payment, :meeting)
+    end
+  end
 
   @spec by_meeting_id(Ecto.UUID.t()) :: BookingPaymentSchema.t() | nil
   def by_meeting_id(meeting_id),
@@ -117,6 +122,7 @@ defmodule Tymeslot.MeetingPayments.BookingPaymentQueries do
       from b in BookingPaymentSchema,
         where: b.host_user_id == ^host_user_id,
         order_by: [desc: b.inserted_at],
+        preload: [:meeting],
         limit: ^limit
 
     Repo.all(query)

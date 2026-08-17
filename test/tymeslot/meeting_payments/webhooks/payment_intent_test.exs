@@ -76,6 +76,24 @@ defmodule Tymeslot.MeetingPayments.Webhooks.PaymentIntentTest do
     assert BookingPaymentQueries.get(payment.id).status == "charge_processing"
   end
 
+  for outcome <- [:succeeded, :failed] do
+    test "#{outcome} rejects a missing or blank PaymentIntent ID" do
+      payment = processing_payment()
+
+      handler =
+        if unquote(outcome) == :succeeded,
+          do: PaymentIntentSucceeded,
+          else: PaymentIntentPaymentFailed
+
+      for intent_id <- [nil, "", "   "] do
+        webhook = event("evt_#{inspect(intent_id)}", intent_id, payment, "succeeded", "ch_X")
+        assert {:error, :payment_intent_mismatch} = handler.handle(webhook)
+      end
+
+      assert BookingPaymentQueries.get(payment.id).status == "charge_processing"
+    end
+  end
+
   defp processing_payment do
     host = insert(:user)
 

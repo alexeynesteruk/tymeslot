@@ -16,6 +16,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreated do
   alias Tymeslot.MeetingPayments.Telemetry
   alias Tymeslot.MeetingPayments.BookingPaymentAudits
   alias Tymeslot.MeetingPayments.Webhooks.PaymentLookup
+  alias Tymeslot.Repo
   alias Tymeslot.Workers.SendChargeDisputeOpened
 
   @event_type "charge.dispute.created"
@@ -48,26 +49,44 @@ defmodule Tymeslot.MeetingPayments.Webhooks.ChargeDisputeCreated do
   defp classify({:error, _reason} = err), do: {err, :error}
 
   defp mark_disputed(payment, event_id, object) do
-    case BookingPaymentQueries.update(payment, %{status: "disputed", last_event_id: event_id}) do
-      {:ok, updated} ->
-        Telemetry.emit_status_changed(payment.status, updated.status, :webhook_dispute_created)
+    case Repo.transaction(fn -> mark_disputed_locked(payment.id, event_id, object) end) do
+      {:ok, :no_op} ->
+        :ok
 
-        _audit =
-          BookingPaymentAudits.append(%{
-            booking_payment_id: updated.id,
-            meeting_id: updated.meeting_id,
-            actor_type: "stripe",
-            action: "dispute_created",
-            amount_cents: updated.amount_cents,
-            result: "disputed",
-            stripe_object_id: object["charge"]
-          })
-
+      {:ok, {previous_status, updated}} ->
+        Telemetry.emit_status_changed(previous_status, updated.status, :webhook_dispute_created)
         enqueue_dispute_email(updated, object)
         :ok
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp mark_disputed_locked(payment_id, event_id, object) do
+    with {:ok, locked} <- BookingPaymentQueries.get_for_update(payment_id) do
+      if locked.last_event_id == event_id do
+        :no_op
+      else
+        with {:ok, updated} <-
+               BookingPaymentQueries.update(locked, %{status: "disputed", last_event_id: event_id}),
+             {:ok, _audit} <-
+               BookingPaymentAudits.append(%{
+                 booking_payment_id: updated.id,
+                 meeting_id: updated.meeting_id,
+                 actor_type: "stripe",
+                 action: "dispute_created",
+                 amount_cents: updated.amount_cents,
+                 result: "disputed",
+                 stripe_object_id: object["charge"]
+               }) do
+          {locked.status, updated}
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end
+    else
+      {:error, reason} -> Repo.rollback(reason)
     end
   end
 

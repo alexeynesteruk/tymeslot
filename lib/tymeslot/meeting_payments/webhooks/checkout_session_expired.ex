@@ -65,19 +65,10 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
 
   defp lookup_by_session(_object), do: nil
 
-  defp run(payment, _event_id, %{"metadata" => %{"payment_purpose" => "recovery"}} = object) do
+  defp run(payment, event_id, %{"metadata" => %{"payment_purpose" => "recovery"}} = object) do
     if payment.stripe_recovery_session_id == object["id"] do
-      case BookingPaymentAudits.append(%{
-             booking_payment_id: payment.id,
-             meeting_id: payment.meeting_id,
-             actor_type: "stripe",
-             action: "recovery_expired",
-             attempt: payment.charge_attempt,
-             amount_cents: payment.service_snapshot["amount_cents"],
-             result: payment.status,
-             stripe_object_id: object["id"]
-           }) do
-        {:ok, _audit} -> :ok
+      case Repo.transaction(fn -> expire_recovery(payment.id, event_id, object["id"]) end) do
+        {:ok, _result} -> :ok
         {:error, reason} -> {:error, reason}
       end
     else
@@ -117,6 +108,33 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp expire_recovery(payment_id, event_id, session_id) do
+    with {:ok, locked} <- BookingPaymentQueries.get_for_update(payment_id) do
+      if locked.last_event_id == event_id do
+        :no_op
+      else
+        with {:ok, updated} <- BookingPaymentQueries.update(locked, %{last_event_id: event_id}),
+             {:ok, _audit} <-
+               BookingPaymentAudits.append(%{
+                 booking_payment_id: updated.id,
+                 meeting_id: updated.meeting_id,
+                 actor_type: "stripe",
+                 action: "recovery_expired",
+                 attempt: updated.charge_attempt,
+                 amount_cents: updated.service_snapshot["amount_cents"],
+                 result: updated.status,
+                 stripe_object_id: session_id
+               }) do
+          updated
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end
+    else
+      {:error, reason} -> Repo.rollback(reason)
     end
   end
 

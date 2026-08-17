@@ -31,6 +31,13 @@ defmodule Tymeslot.MeetingPayments.RefundsDeferredTest do
     assert BookingPaymentQueries.get(payment.id).status == "paid"
   end
 
+  test "deferred refunds cannot use the actorless generic overload" do
+    %{payment: payment} = paid_payment()
+
+    assert {:error, :owner_required} = Refunds.issue_refund(payment, 4_900)
+    assert BookingPaymentQueries.get(payment.id).status == "paid"
+  end
+
   defp paid_payment do
     host = insert(:user)
     meeting = insert(:meeting, organizer_user_id: host.id, status: "completed")
@@ -41,6 +48,13 @@ defmodule Tymeslot.MeetingPayments.RefundsDeferredTest do
         host_user_id: host.id,
         stripe_account_id: "acct_HOST",
         stripe_charge_id: "ch_DEFERRED",
+        payment_timing: "deferred",
+        service_snapshot: %{
+          "service_id" => "discovery-call",
+          "service_name" => "Discovery call",
+          "amount_cents" => 4_900,
+          "currency" => "usd"
+        },
         status: "paid",
         paid_at: DateTime.utc_now(:second),
         amount_cents: 4_900,

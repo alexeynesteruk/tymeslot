@@ -13,6 +13,7 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.ChargeModal do
       <h2>Charge saved card?</h2>
       <p>{@payment.service_snapshot["service_name"]}</p>
       <p>{@payment.attendee_name}</p>
+      <p>{format_appointment(@payment.meeting)}</p>
       <p>{format_amount(@payment.service_snapshot)}</p>
       <button type="button" phx-click="submit_charge" phx-value-id={@payment.id} phx-target={@target}>
         Confirm charge
@@ -26,4 +27,9 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.ChargeModal do
     do: "$" <> :erlang.float_to_binary(cents / 100, decimals: 2)
 
   defp format_amount(_snapshot), do: ""
+
+  defp format_appointment(%{start_time: %DateTime{} = start_time}),
+    do: Calendar.strftime(start_time, "%Y-%m-%d %H:%M UTC")
+
+  defp format_appointment(_meeting), do: ""
 end

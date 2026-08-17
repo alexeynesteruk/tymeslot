@@ -92,7 +92,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
        when status in ["charge_failed", "action_required"] do
     charge_id = fetch_recovery_charge_id(payment, object)
 
-    if is_binary(charge_id) do
+    if is_binary(charge_id) and String.trim(charge_id) != "" do
       case Repo.transaction(fn ->
              with {:ok, locked} <- BookingPaymentQueries.get_for_update(payment.id),
                   :ok <- validate_recovery(locked, event, object),
@@ -102,7 +102,8 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
                       stripe_payment_intent_id: object["payment_intent"],
                       stripe_charge_id: charge_id,
                       paid_at: DateTime.utc_now(:second),
-                      last_error_code: nil
+                      last_error_code: nil,
+                      last_event_id: event["id"]
                     }),
                   {:ok, _audit} <-
                     BookingPaymentAudits.append(%{
@@ -137,14 +138,18 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted do
 
   defp validate_recovery(payment, event, object) do
     metadata = object["metadata"] || %{}
+    intent_id = object["payment_intent"]
 
-    if payment.stripe_recovery_session_id == object["id"] and
+    if payment.last_event_id != event["id"] and
+         payment.stripe_recovery_session_id == object["id"] and
          payment.stripe_account_id == event["account"] and
          payment.id == metadata["booking_payment_id"] and
          payment.meeting_id == metadata["meeting_id"] and
          payment.service_snapshot["service_id"] == metadata["service_id"] and
          payment.charge_attempt == parse_attempt(metadata["charge_attempt"]) and
-         is_binary(object["payment_intent"]) do
+         object["amount_total"] == payment.service_snapshot["amount_cents"] and
+         object["currency"] == payment.service_snapshot["currency"] and
+         is_binary(intent_id) and String.trim(intent_id) != "" do
       :ok
     else
       :no_op
