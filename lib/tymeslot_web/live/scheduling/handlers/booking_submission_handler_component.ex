@@ -39,6 +39,8 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
   alias Tymeslot.Bookings.DemoOrchestrator
   alias Tymeslot.CustomFields
   alias Tymeslot.Demo
+  alias Tymeslot.MyPawTrainer.Intake
+  alias Tymeslot.MyPawTrainer.ServiceCatalog
   alias Tymeslot.Security.InputProcessor
   alias TymeslotWeb.Live.Scheduling.BookingConfig
   alias TymeslotWeb.Live.Scheduling.Handlers.BookingErrorMessage
@@ -94,7 +96,10 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
     if BookingGuards.honeypot_tripped?(booking_params) do
       {:honeypot, BookingGuards.handle_honeypot(socket)}
     else
-      case InputProcessor.validate_form(booking_params, BookingConfig.booking_field_spec()) do
+      case InputProcessor.validate_form(
+             booking_params,
+             BookingConfig.booking_field_spec(service_id(socket.assigns[:meeting_type]))
+           ) do
         {:ok, sanitized_params} ->
           Logger.info("Form validation passed, proceeding to booking")
           validate_and_submit(socket, sanitized_params, booking_params)
@@ -191,14 +196,46 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
     {:error, socket}
   end
 
+  @doc """
+  Validates custom-field or My Paw Trainer intake answers for a booking.
+
+  Direct My Paw Trainer services use `Intake.snapshot_for/1` and
+  `Intake.validate/2`. Generic meeting types keep host-authored custom fields.
+  """
+  @spec validate_booking_answers(Phoenix.LiveView.Socket.t(), map()) ::
+          {:ok, [map()], map()} | {:error, %{String.t() => String.t()}}
+  def validate_booking_answers(socket, sanitized_params) do
+    engine = socket.assigns[:engine]
+    service_id = service_id(socket.assigns[:meeting_type])
+
+    if ServiceCatalog.direct_bookable?(service_id) do
+      snapshot = Intake.snapshot_for(service_id)
+      raw_answers = if engine, do: engine.answers, else: %{}
+
+      answers =
+        raw_answers
+        |> Map.put("client_name", sanitized_params["name"])
+        |> Map.put("email", sanitized_params["email"])
+
+      case Intake.validate(service_id, answers) do
+        {:ok, normalized} -> {:ok, snapshot, normalized}
+        {:error, errors} -> {:error, errors}
+      end
+    else
+      snapshot = if engine, do: engine.definitions, else: []
+      raw_answers = if engine, do: engine.answers, else: %{}
+
+      case CustomFields.validate_answers(snapshot, raw_answers) do
+        {:ok, custom_answers} -> {:ok, snapshot, custom_answers}
+        {:error, errors} -> {:error, errors}
+      end
+    end
+  end
+
   # Private functions
 
   defp validate_and_submit(socket, sanitized_params, booking_params) do
-    engine = socket.assigns[:engine]
-    snapshot = if engine, do: engine.definitions, else: []
-    raw_answers = if engine, do: engine.answers, else: %{}
-
-    with {:ok, custom_answers} <- CustomFields.validate_answers(snapshot, raw_answers),
+    with {:ok, snapshot, custom_answers} <- validate_booking_answers(socket, sanitized_params),
          {:ok, socket} <- BookingGuards.run(socket, sanitized_params, booking_params) do
       enriched_params =
         sanitized_params
@@ -442,4 +479,7 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
       _other -> nil
     end
   end
+
+  defp service_id(%{service_id: service_id}), do: service_id
+  defp service_id(_meeting_type), do: nil
 end
