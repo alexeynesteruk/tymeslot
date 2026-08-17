@@ -154,3 +154,6 @@ data/
 uploads/
 
 # Coverage reports
+
+# Local git worktrees
+.worktrees/
