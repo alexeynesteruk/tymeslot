@@ -86,6 +86,14 @@ both remotes were fetched instead of creating a duplicate clone.
   request to `mypawtrainer@gmail.com`; dashboard cancellation remains
   available. Production booking stays off. Event types stay inactive. No ZIPs
   are seeded. Next implementation task is Task 9 included follow-ups.
+- Task 9 included follow-ups: implemented locally on 2026-08-17. Completed
+  online and in-home consultations earn one owner-issued, client-bound link for
+  a zero-dollar 30-minute virtual child booking from day 5 through the end of
+  day 10 in the meeting timezone. Redemption is single-use, uses a fresh
+  fail-closed calendar check and the trainer booking lock, and creates no card
+  setup or payment row. `follow-up` remains outside the public six-service
+  catalog and normal booking routes. Production booking stays off. Event types
+  remain inactive. No ZIPs are seeded. Next implementation task is Task 10.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 
@@ -127,15 +135,15 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 7 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+Task 9 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
 SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
 exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 8 private rescheduling. Website booking URLs stay off.
+Task 10 transactional projections. Website booking URLs stay off.
 
 ## Production blockers
 
-- Private rescheduling and included follow-up workflows are not implemented.
+- Transactional price and CRM projection workflows are not implemented.
 - Concurrency, webhook, security, and browser gates have not run.
 - ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
 - Anna has not supplied all production booking and authorization values.

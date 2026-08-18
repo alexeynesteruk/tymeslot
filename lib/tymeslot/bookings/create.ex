@@ -304,6 +304,9 @@ defmodule Tymeslot.Bookings.Create do
 
   defp authorize_direct_service(booking_data) do
     case service_id(booking_data) do
+      "follow-up" ->
+        {:error, :service_not_bookable}
+
       nil ->
         {:ok, booking_data}
 

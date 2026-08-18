@@ -54,13 +54,19 @@ defmodule Tymeslot.MeetingPayments.CheckoutSessions do
     # meeting expires). Idempotency on the Stripe side is preserved by the
     # `checkout:<meeting_id>` idempotency key, so a retried booking for the same
     # meeting collapses to a single Stripe session.
-    with {:ok, context} <- build_context(meeting),
+    with :ok <- reject_internal_follow_up(meeting),
+         {:ok, context} <- build_context(meeting),
          {:ok, booking_payment} <- BookingPaymentQueries.insert(context.snapshot),
          {:ok, session} <- create_stripe_session(meeting, context),
          {:ok, booking_payment} <- attach_session_details(booking_payment, session) do
       {:ok, %{checkout_url: session.url, booking_payment: booking_payment}}
     end
   end
+
+  defp reject_internal_follow_up(%{service_snapshot: %{"service_id" => "follow-up"}}),
+    do: {:error, :payment_not_required}
+
+  defp reject_internal_follow_up(_meeting), do: :ok
 
   defp build_context(meeting) do
     with {:ok, host} <- fetch_host(meeting.organizer_user_id),

@@ -117,6 +117,10 @@ defmodule TymeslotWeb.Router do
     pipe_through :browser
 
     get "/", RootRedirectController, :index
+
+    live_session :follow_up do
+      live "/follow-up/:token", FollowUpLive
+    end
   end
 
   # =============================================================================
