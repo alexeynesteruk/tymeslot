@@ -161,6 +161,7 @@ defmodule Tymeslot.Emails.AppointmentBuilder do
       view_url: meeting.view_url || "#",
       reschedule_url: meeting.reschedule_url || "#",
       cancel_url: meeting.cancel_url || "#",
+      service_id: get_in(meeting.service_snapshot || %{}, ["service_id"]),
       meeting_url: meeting.meeting_url,
       organizer_video_url: meeting.organizer_video_url,
       attendee_video_url: meeting.attendee_video_url

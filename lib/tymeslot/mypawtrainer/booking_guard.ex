@@ -29,6 +29,16 @@ defmodule Tymeslot.MyPawTrainer.BookingGuard do
 
   def authorize_service(_service_id, _attrs), do: {:error, :service_not_bookable}
 
+  @spec authorize_reschedule(term(), attrs()) :: {:ok, map()} | {:error, atom()}
+  def authorize_reschedule(service_id, attrs) when is_map(attrs) do
+    with {:ok, service} <- fetch_direct(service_id),
+         :ok <- enforce_duration(service, attrs) do
+      {:ok, snapshot(service, attrs)}
+    end
+  end
+
+  def authorize_reschedule(_service_id, _attrs), do: {:error, :service_not_bookable}
+
   defp fetch_direct(service_id) do
     if ServiceCatalog.direct_bookable?(service_id) do
       {:ok, ServiceCatalog.fetch!(service_id)}

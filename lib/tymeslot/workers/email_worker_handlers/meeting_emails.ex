@@ -142,7 +142,10 @@ defmodule Tymeslot.Workers.EmailWorkerHandlers.MeetingEmails do
     else
       Logger.info("Sending confirmation emails", meeting_id: meeting.id, uid: meeting.uid)
 
-      appointment_details = AppointmentBuilder.from_meeting(meeting)
+      appointment_details =
+        meeting
+        |> AppointmentBuilder.from_meeting()
+        |> then(&Tymeslot.Bookings.ManagementTokens.prepare_email_details(meeting, &1))
 
       need_organizer? = !meeting.organizer_email_sent
       need_attendee? = !meeting.attendee_email_sent
@@ -244,7 +247,9 @@ defmodule Tymeslot.Workers.EmailWorkerHandlers.MeetingEmails do
     Logger.info("Sending reminder emails", meeting_id: meeting.id, uid: meeting.uid)
 
     appointment_details =
-      AppointmentBuilder.from_meeting(meeting, %{value: reminder_value, unit: reminder_unit})
+      meeting
+      |> AppointmentBuilder.from_meeting(%{value: reminder_value, unit: reminder_unit})
+      |> then(&Tymeslot.Bookings.ManagementTokens.prepare_email_details(meeting, &1))
 
     time_until = appointment_details.time_until
 

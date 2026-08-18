@@ -333,6 +333,7 @@ defmodule TymeslotWeb.Router do
            :cancel_confirmed
 
       live "/:username/meeting/:meeting_uid/reschedule", Themes.Core.Dispatcher, :reschedule
+      live "/:username/manage/:management_token", Themes.Core.Dispatcher, :reschedule
     end
   end
 

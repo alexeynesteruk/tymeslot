@@ -6,7 +6,7 @@ defmodule Tymeslot.Bookings.Orchestrator do
   delegating business logic to appropriate domain modules.
   """
 
-  alias Tymeslot.Bookings.{Create, Errors, Validation}
+  alias Tymeslot.Bookings.{Create, Errors, Reschedule, Validation}
   alias Tymeslot.Meetings
   alias Tymeslot.Meetings.MeetingQueries
 
@@ -54,7 +54,8 @@ defmodule Tymeslot.Bookings.Orchestrator do
            reschedule_uid,
            meeting_params,
            form_data,
-           organizer_user_id
+           organizer_user_id,
+           Keyword.get(opts, :management_token)
          ) do
       {:ok, :payment_required, _payload} = payment_tuple ->
         payment_tuple
@@ -117,10 +118,22 @@ defmodule Tymeslot.Bookings.Orchestrator do
          reschedule_uid,
          meeting_params,
          sanitized_data,
-         organizer_user_id
+         organizer_user_id,
+         management_token
        ) do
     # Rescheduling flow
-    reschedule_meeting(reschedule_uid, meeting_params, sanitized_data, organizer_user_id)
+    if is_binary(management_token) do
+      case Reschedule.execute_with_management_token(
+             management_token,
+             meeting_params,
+             sanitized_data
+           ) do
+        {:ok, meeting} -> {:ok, meeting}
+        error -> error
+      end
+    else
+      reschedule_meeting(reschedule_uid, meeting_params, sanitized_data, organizer_user_id)
+    end
   end
 
   defp create_or_reschedule_meeting(
@@ -128,7 +141,8 @@ defmodule Tymeslot.Bookings.Orchestrator do
          _reschedule_uid,
          meeting_params,
          sanitized_data,
-         _organizer_user_id
+         _organizer_user_id,
+         _management_token
        ) do
     # New booking flow
     create_meeting(meeting_params, sanitized_data)

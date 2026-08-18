@@ -7,9 +7,10 @@ defmodule Tymeslot.Bookings.RescheduleTest do
   use Oban.Testing, repo: Tymeslot.Repo
   @moduletag :bookings
 
+  import Ecto.Query
   import Mox
 
-  alias Tymeslot.Bookings.Reschedule
+  alias Tymeslot.Bookings.{ManagementTokens, Reschedule}
   alias Tymeslot.Bookings.RescheduleRequest
   alias Tymeslot.Bookings.Validation
   alias Tymeslot.Emails.EmailScheduler
@@ -30,6 +31,118 @@ defmodule Tymeslot.Bookings.RescheduleTest do
     # Setup mocks for calendar and email services
     TestMocks.setup_email_mocks()
     :ok
+  end
+
+  describe "execute_with_management_token/3" do
+    setup do
+      on_exit(fn -> Application.delete_env(:tymeslot, :mypawtrainer_reschedule_deadlines) end)
+      :ok
+    end
+
+    test "invalid token leaves the original direct-service meeting unchanged" do
+      %{user: user} = create_user_with_profile()
+
+      meeting =
+        insert_meeting_for_user(user, %{
+          service_snapshot: %{
+            "service_id" => "online-consultation",
+            "duration_minutes" => 90
+          },
+          duration: 90
+        })
+
+      original_start = meeting.start_time
+
+      assert {:error, :invalid_management_link} =
+               Reschedule.execute_with_management_token("invalid", reschedule_params(90), %{})
+
+      assert {:ok, unchanged} = MeetingQueries.get_meeting(meeting.id)
+      assert unchanged.start_time == original_start
+    end
+
+    test "successful direct-service reschedule consumes and rotates the management token" do
+      %{user: user} = create_user_with_profile()
+
+      meeting =
+        insert_meeting_for_user(user, %{
+          service_snapshot: %{
+            "service_id" => "online-consultation",
+            "duration_minutes" => 90
+          },
+          duration: 90
+        })
+
+      Application.put_env(:tymeslot, :mypawtrainer_reschedule_deadlines, %{user.id => 0})
+      assert {:ok, raw_token, _token} = ManagementTokens.issue(meeting)
+      owner_id = user.id
+
+      expect(Tymeslot.CalendarMock, :get_events_for_range_fresh, fn ^owner_id, _from, _to ->
+        {:ok, []}
+      end)
+
+      assert {:ok, updated} =
+               Reschedule.execute_with_management_token(raw_token, reschedule_params(90), %{})
+
+      assert updated.id == meeting.id
+      assert {:error, :invalid_management_link} = ManagementTokens.resolve(raw_token)
+      assert updated.reschedule_url == nil
+      assert updated.cancel_url == nil
+
+      assert [replacement] =
+               Tymeslot.Repo.all(
+                 from token in Tymeslot.Bookings.ManagementTokenSchema,
+                   where: token.meeting_id == ^meeting.id and is_nil(token.consumed_at)
+               )
+
+      assert replacement.token_hash != :crypto.hash(:sha256, raw_token)
+    end
+
+    test "rejects a token-bound meeting whose snapshotted duration violates the service guard" do
+      %{user: user} = create_user_with_profile()
+
+      meeting =
+        insert_meeting_for_user(user, %{
+          service_snapshot: %{
+            "service_id" => "online-consultation",
+            "duration_minutes" => 60
+          },
+          duration: 60
+        })
+
+      Application.put_env(:tymeslot, :mypawtrainer_reschedule_deadlines, %{user.id => 0})
+      assert {:ok, raw_token, _token} = ManagementTokens.issue(meeting)
+
+      assert {:error, :invalid_duration} =
+               Reschedule.execute_with_management_token(raw_token, reschedule_params(60), %{})
+
+      assert {:ok, unchanged} = MeetingQueries.get_meeting(meeting.id)
+      assert unchanged.start_time == meeting.start_time
+    end
+  end
+
+  test "direct-service meeting cannot use the legacy UID reschedule entry point" do
+    %{user: user} = create_user_with_profile()
+
+    meeting =
+      insert_meeting_for_user(user, %{
+        service_snapshot: %{
+          "service_id" => "online-consultation",
+          "duration_minutes" => 90
+        },
+        duration: 90
+      })
+
+    assert {:error, :invalid_management_link} =
+             Reschedule.execute(meeting.uid, reschedule_params(90), %{}, user.id)
+  end
+
+  defp reschedule_params(duration) do
+    %{
+      date: Date.to_string(Date.add(Date.utc_today(), 3)),
+      time: "2:00 PM",
+      duration: "#{duration}min",
+      user_timezone: "America/New_York"
+    }
   end
 
   defp setup_reschedule_test do

@@ -28,7 +28,8 @@ defmodule TymeslotWeb.Themes.Core.MountHelpers do
   def mount_with_profile(profile, params, session, socket, delegate_fn) do
     action = socket.assigns[:live_action]
 
-    if action in [:reschedule, :cancel, :cancel_confirmed] && params["meeting_uid"] do
+    if action in [:reschedule, :cancel, :cancel_confirmed] &&
+         (params["meeting_uid"] || params["management_token"]) do
       mount_meeting_management(profile, params, socket, action)
     else
       mount_scheduling_flow(profile, params, session, socket, delegate_fn)
@@ -118,7 +119,7 @@ defmodule TymeslotWeb.Themes.Core.MountHelpers do
     theme_id = profile.booking_theme || socket.assigns[:theme_id] || Registry.default_theme_id()
     meeting_uid = params["meeting_uid"]
 
-    case MeetingManagement.validate_and_load_meeting(meeting_uid, action, profile.user_id) do
+    case MeetingManagement.validate_and_load_meeting(params, action, profile.user_id) do
       {:ok, meeting} ->
         socket =
           setup_meeting_management_socket(
@@ -198,6 +199,8 @@ defmodule TymeslotWeb.Themes.Core.MountHelpers do
       |> assign(:booking_window_days, OrganizerHelpers.booking_window_days(profile))
       |> assign(:meeting, meeting)
       |> assign(:meeting_uid, meeting_uid)
+      |> assign(:management_token, params["management_token"])
+      |> assign(:cancellation_request_only, MeetingManagement.cancellation_request_only?(meeting))
       |> assign(:loading, false)
       |> assign(:has_theme, true)
 

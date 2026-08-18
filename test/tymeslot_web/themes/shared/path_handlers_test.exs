@@ -128,6 +128,22 @@ defmodule TymeslotWeb.Themes.Shared.PathHandlersTest do
       path = PathHandlers.build_path_with_locale(socket, "de")
       assert path == "/johndoe?locale=de&theme=1"
     end
+
+    test "carries a management token without exposing the internally resolved meeting uid" do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{
+          username_context: "johndoe",
+          live_action: :overview,
+          theme_id: "1",
+          management_token: "private-token",
+          reschedule_meeting_uid: "internal-uid"
+        }
+      }
+
+      path = PathHandlers.build_path_with_locale(socket, "de")
+      assert path == "/johndoe?locale=de&management_token=private-token&theme=1"
+      refute path =~ "internal-uid"
+    end
   end
 
   describe "organizer_scheduling_path/1" do

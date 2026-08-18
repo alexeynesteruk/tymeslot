@@ -205,16 +205,40 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
   """
   @spec handle_param_updates(Phoenix.LiveView.Socket.t(), map()) :: Phoenix.LiveView.Socket.t()
   def handle_param_updates(socket, params) do
+    management =
+      resolve_management_context(params["management_token"], socket.assigns[:organizer_user_id])
+
     socket
     |> maybe_assign_from_params(:duration, normalize_duration_param(params))
     |> maybe_assign_from_params(:selected_duration, normalize_duration_param(params))
     |> maybe_assign_from_params(:selected_date, params["date"])
     |> maybe_assign_from_params(:selected_time, params["time"])
-    |> maybe_assign_from_params(:reschedule_meeting_uid, params["reschedule_meeting_uid"])
-    |> assign(:is_rescheduling, params["reschedule_meeting_uid"] != nil)
+    |> maybe_assign_from_params(
+      :reschedule_meeting_uid,
+      management_uid(management) || params["reschedule_meeting_uid"]
+    )
+    |> maybe_assign_from_params(:management_token, management_token(management))
+    |> assign(
+      :is_rescheduling,
+      params["reschedule_meeting_uid"] != nil || match?({:ok, _, _}, management)
+    )
     |> assign_service_area(params)
     |> handle_confirmation_params(params)
   end
+
+  defp resolve_management_context(nil, _owner_id), do: :none
+
+  defp resolve_management_context(token, owner_id) do
+    case Tymeslot.Bookings.ManagementTokens.resolve(token) do
+      {:ok, %{organizer_user_id: ^owner_id} = meeting, _stored} -> {:ok, token, meeting.uid}
+      _invalid -> :none
+    end
+  end
+
+  defp management_uid({:ok, _token, uid}), do: uid
+  defp management_uid(_other), do: nil
+  defp management_token({:ok, token, _uid}), do: token
+  defp management_token(_other), do: nil
 
   @doc """
   Applies in-home ZIP eligibility before times can be fetched or shown.

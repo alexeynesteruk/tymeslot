@@ -79,6 +79,13 @@ both remotes were fetched instead of creating a duplicate clone.
   fail closed, recovery completion verifies immutable amount and currency,
   recovery expiry and disputes lock and deduplicate audit writes, and actorless
   refunds reject deferred payments without changing generic upfront refunds.
+- Task 8 private management links: implemented locally on 2026-08-17. My Paw
+  Trainer direct-service attendee links are hashed, meeting- and
+  attendee-bound, owner-deadline controlled, rescheduling-only, and rotated
+  after use or newer email delivery. Legacy public cancellation is an email
+  request to `mypawtrainer@gmail.com`; dashboard cancellation remains
+  available. Production booking stays off. Event types stay inactive. No ZIPs
+  are seeded. Next implementation task is Task 9 included follow-ups.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 

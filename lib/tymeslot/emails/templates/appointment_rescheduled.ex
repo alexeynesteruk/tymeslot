@@ -81,7 +81,9 @@ defmodule Tymeslot.Emails.Templates.AppointmentRescheduled do
 
       #{Text.section_title(dgettext("emails", "Does the new time not work?"))}
 
-      #{MeetingComponents.meeting_actions_bar(@intent, [%{text: dgettext("emails", "Reschedule"), url: Map.get(appointment_details, :reschedule_url, "#"), style: :secondary}, %{text: dgettext("emails", "Cancel Appointment"), url: Map.get(appointment_details, :cancel_url, "#"), style: :danger}])}
+      #{MeetingComponents.meeting_actions_bar(@intent, meeting_actions(appointment_details))}
+
+      #{cancellation_request_copy(appointment_details)}
 
       #{reminders_callout(appointment_details)}
       """
@@ -138,7 +140,7 @@ defmodule Tymeslot.Emails.Templates.AppointmentRescheduled do
 
       #{Text.section_title(dgettext("emails", "Need to make changes?"))}
 
-      #{MeetingComponents.meeting_actions_bar(@intent, [%{text: dgettext("emails", "Reschedule"), url: Map.get(appointment_details, :reschedule_url, "#"), style: :secondary}, %{text: dgettext("emails", "Cancel Appointment"), url: Map.get(appointment_details, :cancel_url, "#"), style: :danger}])}
+      #{MeetingComponents.meeting_actions_bar(@intent, meeting_actions(appointment_details))}
 
       #{Text.system_footer_note(dgettext("emails", "The attendee has been notified of the new time."))}
       """
@@ -257,6 +259,7 @@ defmodule Tymeslot.Emails.Templates.AppointmentRescheduled do
     #{meeting_details}#{video_section}#{custom_answers}
     #{action_links}
     #{if reminders, do: "\n#{reminders}\n", else: ""}
+    #{cancellation_request_text(appointment_details)}
     #{dgettext("emails", "Looking forward to meeting you!")}
     #{appointment_details.organizer_name}
     """
@@ -295,4 +298,53 @@ defmodule Tymeslot.Emails.Templates.AppointmentRescheduled do
   defp join_url(:attendee, details), do: Map.get(details, :attendee_video_url)
 
   defp organizer_locale(_appointment_details), do: Locales.default_locale()
+
+  defp meeting_actions(details) do
+    reschedule =
+      if Map.get(details, :reschedule_url) do
+        [
+          %{
+            text: dgettext("emails", "Reschedule"),
+            url: details.reschedule_url,
+            style: :secondary
+          }
+        ]
+      else
+        []
+      end
+
+    if mpt?(details) do
+      reschedule
+    else
+      reschedule ++
+        [
+          %{
+            text: dgettext("emails", "Cancel Appointment"),
+            url: Map.get(details, :cancel_url, "#"),
+            style: :danger
+          }
+        ]
+    end
+  end
+
+  defp cancellation_request_copy(details) do
+    if mpt?(details) do
+      Text.centered_text(
+        dgettext("emails", "To request cancellation, email mypawtrainer@gmail.com."),
+        font_size: "14px",
+        padding: "16px 0 0 0"
+      )
+    else
+      ""
+    end
+  end
+
+  defp cancellation_request_text(details) do
+    if mpt?(details),
+      do: "\n#{dgettext("emails", "To request cancellation, email mypawtrainer@gmail.com.")}\n",
+      else: ""
+  end
+
+  defp mpt?(details),
+    do: Tymeslot.MyPawTrainer.ServiceCatalog.direct_bookable?(Map.get(details, :service_id))
 end

@@ -52,6 +52,7 @@ defmodule Tymeslot.Notifications.ContentBuilder do
       # Meeting details
       location: determine_location(meeting),
       meeting_type: meeting.meeting_type,
+      service_id: get_in(meeting.service_snapshot || %{}, ["service_id"]),
 
       # URLs and links
       view_url: meeting.view_url,

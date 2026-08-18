@@ -4,7 +4,7 @@ defmodule TymeslotWeb.Themes.Core.MeetingManagement do
   import Phoenix.Component, only: [assign: 3]
   import Phoenix.LiveView, only: [put_flash: 3, redirect: 2]
 
-  alias Tymeslot.Bookings.Policy
+  alias Tymeslot.Bookings.{ManagementTokens, Policy}
   alias Tymeslot.Meetings
   alias Tymeslot.Security.RateLimiter
   alias Tymeslot.Utils.DateTimeUtils.Duration
@@ -20,17 +20,38 @@ defmodule TymeslotWeb.Themes.Core.MeetingManagement do
   """
   @spec validate_and_load_meeting(String.t(), atom(), integer()) ::
           {:ok, map()} | {:error, String.t()}
-  def validate_and_load_meeting(meeting_uid, action, organizer_user_id) do
+  def validate_and_load_meeting(%{"management_token" => token}, :reschedule, organizer_user_id) do
+    case ManagementTokens.resolve(token) do
+      {:ok, %{organizer_user_id: ^organizer_user_id} = meeting, _token} -> {:ok, meeting}
+      _invalid -> {:error, "This management link is invalid or unavailable"}
+    end
+  end
+
+  def validate_and_load_meeting(%{"meeting_uid" => meeting_uid}, action, organizer_user_id) do
     case Meetings.get_meeting_by_uid_for_organizer(meeting_uid, organizer_user_id) do
       {:ok, meeting} ->
-        case validate_meeting_action(meeting, action) do
-          :ok -> {:ok, meeting}
-          {:error, reason} -> {:error, reason}
+        if action == :reschedule and cancellation_request_only?(meeting) do
+          {:error, "This management link is invalid or unavailable"}
+        else
+          case validate_meeting_action(meeting, action) do
+            :ok -> {:ok, meeting}
+            {:error, reason} -> {:error, reason}
+          end
         end
 
       {:error, :not_found} ->
         {:error, "Meeting not found"}
     end
+  end
+
+  def validate_and_load_meeting(_params, _action, _organizer_user_id),
+    do: {:error, "This management link is invalid or unavailable"}
+
+  @doc "True when public cancellation must be requested by email."
+  def cancellation_request_only?(meeting) do
+    Tymeslot.MyPawTrainer.ServiceCatalog.direct_bookable?(
+      get_in(meeting.service_snapshot, ["service_id"])
+    )
   end
 
   @doc "Validates whether the given action is permitted for the meeting."
@@ -51,7 +72,7 @@ defmodule TymeslotWeb.Themes.Core.MeetingManagement do
   @spec handle_meeting_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
           {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_meeting_event("cancel_meeting", _unused_params, socket) do
-    if socket.assigns[:live_action] == :cancel do
+    if socket.assigns[:live_action] == :cancel and not socket.assigns[:cancellation_request_only] do
       meeting = socket.assigns[:meeting]
       client_ip = ClientIP.get(socket)
 

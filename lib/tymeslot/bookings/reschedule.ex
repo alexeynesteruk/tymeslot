@@ -7,14 +7,16 @@ defmodule Tymeslot.Bookings.Reschedule do
   require Logger
 
   alias Tymeslot.Availability.TimeSlots
-  alias Tymeslot.Bookings.{CalendarJobs, Errors, Policy, Validation}
+  alias Tymeslot.Bookings.{CalendarJobs, Errors, ManagementTokens, Policy, Validation}
   alias Tymeslot.Infrastructure.AvailabilityCache
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.Meetings.Scheduling
   alias Tymeslot.MeetingTypes
   alias Tymeslot.MyPawTrainer.CalendarAvailability
+  alias Tymeslot.MyPawTrainer.BookingGuard
   alias Tymeslot.MyPawTrainer.ServiceCatalog
   alias Tymeslot.Notifications.Events
+  alias Tymeslot.Profiles.ProfileQueries
   alias Tymeslot.Repo
   alias Tymeslot.Workers.VideoSyncWorker
 
@@ -53,6 +55,7 @@ defmodule Tymeslot.Bookings.Reschedule do
       when is_binary(meeting_uid) and is_integer(organizer_user_id) do
     with {:ok, original_meeting} <-
            MeetingQueries.get_meeting_by_uid_for_organizer(meeting_uid, organizer_user_id),
+         :ok <- reject_legacy_direct_service(original_meeting),
          :ok <- validate_can_reschedule(original_meeting),
          {:ok, new_times} <- prepare_new_times(new_params, original_meeting),
          :ok <- verify_fresh_availability(original_meeting, new_times),
@@ -65,6 +68,30 @@ defmodule Tymeslot.Bookings.Reschedule do
       {:error, :not_found} -> {:error, :meeting_not_found}
       {:error, :slot_unavailable} -> {:error, :slot_taken}
       {:error, :calendar_unverifiable} -> {:error, :slot_taken}
+      error -> error
+    end
+  end
+
+  @doc "Reschedules a My Paw Trainer direct booking using its private attendee token."
+  @spec execute_with_management_token(String.t(), reschedule_params(), any()) ::
+          {:ok, Ecto.Schema.t()} | {:error, atom() | String.t()}
+  def execute_with_management_token(raw_token, new_params, _form_data)
+      when is_binary(raw_token) do
+    with {:ok, original_meeting, _token} <- ManagementTokens.resolve(raw_token),
+         :ok <- authorize_direct_reschedule(original_meeting),
+         :ok <- validate_can_reschedule(original_meeting),
+         {:ok, new_times} <- prepare_new_times(new_params, original_meeting),
+         :ok <- verify_fresh_availability(original_meeting, new_times),
+         {:ok, updated_meeting, _replacement_raw} <-
+           apply_token_time_update(original_meeting, new_times, raw_token) do
+      AvailabilityCache.invalidate_for_user(updated_meeting.organizer_user_id)
+      sync_provider_video_room(updated_meeting)
+      send_reschedule_notifications(updated_meeting, original_meeting)
+      {:ok, %{updated_meeting | reschedule_url: nil, cancel_url: nil}}
+    else
+      {:error, :slot_unavailable} -> {:error, :slot_taken}
+      {:error, :calendar_unverifiable} -> {:error, :slot_taken}
+      {:error, :invalid_management_link} -> {:error, :invalid_management_link}
       error -> error
     end
   end
@@ -106,6 +133,50 @@ defmodule Tymeslot.Bookings.Reschedule do
       {:error, :booking_limit_reached} -> {:error, :booking_limit_reached}
       {:error, :failed_to_update_meeting} -> {:error, :failed_to_update_meeting}
       {:error, _reason} -> {:error, :failed_to_update_meeting}
+    end
+  end
+
+  defp apply_token_time_update(meeting, new_times, raw_token) do
+    attrs = %{
+      start_time: new_times.start_time,
+      end_time: new_times.end_time,
+      reschedule_requested_at: nil,
+      reminders_sent: [],
+      reminder_email_sent: false,
+      reschedule_url: nil,
+      cancel_url: nil
+    }
+
+    Repo.transaction(fn ->
+      with {:ok, updated} <- update_meeting(meeting, attrs),
+           {:ok, _result} <- schedule_calendar_job(updated),
+           {:ok, replacement_raw, _replacement} <-
+             ManagementTokens.consume_and_rotate(raw_token, updated) do
+        {updated, replacement_raw}
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> case do
+      {:ok, {updated, replacement_raw}} ->
+        {:ok, %{updated | reschedule_url: management_url(updated, replacement_raw)},
+         replacement_raw}
+
+      {:error, :time_conflict} ->
+        {:error, :slot_taken}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp management_url(meeting, raw_token) do
+    case ProfileQueries.get_by_user_id(meeting.organizer_user_id) do
+      {:ok, %{username: username}} when is_binary(username) ->
+        ManagementTokens.management_url(username, raw_token)
+
+      _missing_profile ->
+        nil
     end
   end
 
@@ -178,6 +249,22 @@ defmodule Tymeslot.Bookings.Reschedule do
 
   defp direct_service_meeting?(meeting) do
     ServiceCatalog.direct_bookable?(get_in(meeting.service_snapshot, ["service_id"]))
+  end
+
+  defp reject_legacy_direct_service(meeting) do
+    if direct_service_meeting?(meeting), do: {:error, :invalid_management_link}, else: :ok
+  end
+
+  defp authorize_direct_reschedule(meeting) do
+    service_id = get_in(meeting.service_snapshot, ["service_id"])
+
+    case BookingGuard.authorize_reschedule(service_id, %{
+           owner_id: meeting.organizer_user_id,
+           duration_minutes: get_in(meeting.service_snapshot, ["duration_minutes"])
+         }) do
+      {:ok, _snapshot} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   # Ad-hoc meetings carry no meeting type; a nil resolves the organiser's

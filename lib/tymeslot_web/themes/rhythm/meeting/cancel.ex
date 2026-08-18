@@ -18,6 +18,7 @@ defmodule TymeslotWeb.Themes.Rhythm.Meeting.Cancel do
   attr :organizer_profile, :map, default: nil
   attr :loading, :boolean, required: true
   attr :meeting_kept, :boolean, default: false
+  attr :cancellation_request_only, :boolean, default: false
 
   @doc """
   Renders the cancel page in Rhythm theme style.
@@ -84,11 +85,17 @@ defmodule TymeslotWeb.Themes.Rhythm.Meeting.Cancel do
                     </div>
 
                     <h1 class="confirmation-headline">
-                      {dgettext("booking", "Cancel Appointment")}
+                      {if @cancellation_request_only,
+                        do: dgettext("booking", "Request Cancellation"),
+                        else: dgettext("booking", "Cancel Appointment")}
                     </h1>
 
                     <p class="confirmation-message">
-                      {dgettext("booking", "Are you sure you want to cancel this appointment?")}
+                      <%= if @cancellation_request_only do %>
+                        {dgettext("booking", "To request cancellation, email mypawtrainer@gmail.com.")}
+                      <% else %>
+                        {dgettext("booking", "Are you sure you want to cancel this appointment?")}
+                      <% end %>
                     </p>
                   <% end %>
                 </div>
@@ -109,7 +116,7 @@ defmodule TymeslotWeb.Themes.Rhythm.Meeting.Cancel do
                   />
 
                   <%= if @meeting_kept do %>
-                    <div class="ticket-footer">
+                    <div :if={not @cancellation_request_only} class="ticket-footer">
                       <div class="email-confirmation">
                         <svg
                           class="email-icon email-icon--success"
@@ -161,7 +168,7 @@ defmodule TymeslotWeb.Themes.Rhythm.Meeting.Cancel do
                     </button>
                   </div>
                 <% else %>
-                  <div class="confirmation-actions">
+                  <div :if={not @cancellation_request_only} class="confirmation-actions">
                     <button
                       phx-click="cancel_meeting"
                       class="action-button-primary action-button-danger"

@@ -54,8 +54,16 @@ defmodule TymeslotWeb.Themes.Shared.PathHandlers do
   end
 
   defp do_get_base_path(:reschedule, username, socket) do
-    meeting_uid = socket.assigns[:meeting_uid]
-    if meeting_uid, do: "/#{username}/meeting/#{meeting_uid}/reschedule", else: "/#{username}"
+    cond do
+      socket.assigns[:management_token] ->
+        "/#{username}/manage/#{socket.assigns.management_token}"
+
+      socket.assigns[:meeting_uid] ->
+        "/#{username}/meeting/#{socket.assigns.meeting_uid}/reschedule"
+
+      true ->
+        "/#{username}"
+    end
   end
 
   defp do_get_base_path(_action, username, _socket), do: "/#{username}"
@@ -63,8 +71,15 @@ defmodule TymeslotWeb.Themes.Shared.PathHandlers do
   defp build_query_params(socket, locale) do
     %{"locale" => locale}
     |> maybe_put_query_param("theme", socket.assigns[:theme_id])
-    |> maybe_put_query_param("reschedule_meeting_uid", socket.assigns[:reschedule_meeting_uid])
+    |> put_reschedule_context(socket.assigns)
   end
+
+  defp put_reschedule_context(params, %{management_token: token})
+       when is_binary(token) and token != "",
+       do: Map.put(params, "management_token", token)
+
+  defp put_reschedule_context(params, assigns),
+    do: maybe_put_query_param(params, "reschedule_meeting_uid", assigns[:reschedule_meeting_uid])
 
   defp get_slug(socket) do
     duration = socket.assigns[:duration] || socket.assigns[:selected_duration]
@@ -91,7 +106,11 @@ defmodule TymeslotWeb.Themes.Shared.PathHandlers do
   def organizer_scheduling_path(assigns) do
     case assigns[:organizer_profile] do
       %{username: username} when is_binary(username) and username != "" ->
-        maybe_append_reschedule_uid("/#{username}", assigns[:meeting_uid])
+        maybe_append_reschedule_context(
+          "/#{username}",
+          assigns[:management_token],
+          assigns[:meeting_uid]
+        )
 
       _other ->
         "/"
@@ -103,4 +122,12 @@ defmodule TymeslotWeb.Themes.Shared.PathHandlers do
   end
 
   defp maybe_append_reschedule_uid(base_path, _uid), do: base_path
+
+  defp maybe_append_reschedule_context(base_path, token, _uid)
+       when is_binary(token) and token != "" do
+    "#{base_path}?#{URI.encode_query(%{"management_token" => token})}"
+  end
+
+  defp maybe_append_reschedule_context(base_path, _token, uid),
+    do: maybe_append_reschedule_uid(base_path, uid)
 end

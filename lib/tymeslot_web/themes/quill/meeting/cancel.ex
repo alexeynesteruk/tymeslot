@@ -19,6 +19,7 @@ defmodule TymeslotWeb.Themes.Quill.Meeting.Cancel do
   attr :organizer_profile, :map, default: nil
   attr :loading, :boolean, required: true
   attr :meeting_kept, :boolean, default: false
+  attr :cancellation_request_only, :boolean, default: false
 
   @doc """
   Renders the cancel page in Quill theme style.
@@ -126,14 +127,21 @@ defmodule TymeslotWeb.Themes.Quill.Meeting.Cancel do
                     class="text-3xl font-bold mb-2"
                     style="color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.1);"
                   >
-                    {dgettext("booking", "Cancel Appointment")}
+                    {if @cancellation_request_only,
+                      do: dgettext("booking", "Request Cancellation"),
+                      else: dgettext("booking", "Cancel Appointment")}
                   </h1>
                   <p class="text-lg" style="color: rgba(255,255,255,0.9);">
-                    {dgettext("booking", "Are you sure you want to cancel this appointment?")}
+                    <%= if @cancellation_request_only do %>
+                      {dgettext("booking", "To request cancellation, email mypawtrainer@gmail.com.")}
+                    <% else %>
+                      {dgettext("booking", "Are you sure you want to cancel this appointment?")}
+                    <% end %>
                   </p>
                 </div>
 
                 <div
+                  :if={not @cancellation_request_only}
                   class="glass-morphism-card mb-8"
                   style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);"
                 >
@@ -181,7 +189,7 @@ defmodule TymeslotWeb.Themes.Quill.Meeting.Cancel do
                   </div>
                 </div>
 
-                <div class="flex gap-4">
+                <div :if={not @cancellation_request_only} class="flex gap-4">
                   <.loading_button
                     type="button"
                     phx-click="cancel_meeting"
