@@ -36,6 +36,17 @@ defmodule Tymeslot.Infrastructure.Logging.MetadataRedactor do
     session_id
     calendar_id
     calendar_path
+    attendee_name
+    attendee_email
+    attendee_phone
+    dog_name
+    zip_code
+    main_concern
+    brief_context
+    desired_result
+    setup_intent
+    payment_method
+    card
   )
 
   @redacted "[REDACTED]"
@@ -69,18 +80,20 @@ defmodule Tymeslot.Infrastructure.Logging.MetadataRedactor do
   def sensitive_substrings, do: @sensitive_substrings
 
   defp redact_meta(meta) do
-    if Enum.any?(meta, fn {k, _v} -> sensitive_key?(k) end) do
-      Map.new(meta, fn {key, value} ->
-        if sensitive_key?(key) do
-          {key, @redacted}
-        else
-          {key, value}
-        end
-      end)
-    else
-      meta
-    end
+    Map.new(meta, fn {key, value} ->
+      cond do
+        sensitive_key?(key) -> {key, @redacted}
+        is_struct(value) -> {key, value}
+        is_map(value) -> {key, redact_meta(value)}
+        is_list(value) -> {key, Enum.map(value, &redact_value/1)}
+        true -> {key, value}
+      end
+    end)
   end
+
+  defp redact_value(value) when is_struct(value), do: value
+  defp redact_value(value) when is_map(value), do: redact_meta(value)
+  defp redact_value(value), do: value
 
   defp sensitive_key?(key) when is_atom(key) do
     key

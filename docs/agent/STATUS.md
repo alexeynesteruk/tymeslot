@@ -124,6 +124,22 @@ both remotes were fetched instead of creating a duplicate clone.
   disabled. CRM delivery defaults off. Production booking stays off, event
   types remain inactive, and no ZIPs are seeded. Next implementation task is
   Task 13 privacy, retention, authorization, and observability enforcement.
+- Task 13 privacy, retention, authorization, and observability enforcement:
+  implemented locally on 2026-08-17. Logger metadata, message redaction, admin
+  alerts, and analytics reject the named attendee, dog, ZIP, intake, setup,
+  payment-method, and card fields, including nested contexts. Scheduler
+  retention scrubs attendee identity and intake while preserving immutable
+  service and financial facts, retains audit outcomes, and deletes expired
+  management and follow-up token hashes. Contract tests prove completion,
+  charge, recovery, refund, ZIP, price, and follow-up owner isolation. Focused
+  verification passed 14 tests and the broader affected regression suite
+  passed 89 tests. `mix deps.audit`, formatting, compile with warnings as
+  errors, and `git diff --check` passed. `mix sobelow` exited successfully with
+  one pre-existing medium-confidence `XSS.HTML` finding in the development-only
+  `lib/tymeslot_web/controllers/dev/embed_test_controller.ex:45`; no Task 13
+  file is involved. Production booking stays off, event types remain inactive,
+  and no ZIPs are seeded. Next implementation task is Task 14 browser and
+  website interface contracts.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 
@@ -165,11 +181,11 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 12 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+Task 13 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
 SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
 exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 13 privacy, retention, authorization, and observability. Website booking
+Task 14 browser and website interface contracts. Website booking
 URLs stay off. CRM projection delivery and client and dog producers stay
 disabled.
 

@@ -87,12 +87,14 @@ defmodule Tymeslot.Infrastructure.AdminAlerts.PIIScrubberTest do
                %{context: %{owner_email_masked: "a***@example.com", note: "x"}}
     end
 
-    test "leaves doubly-nested maps alone" do
+    test "scrubs doubly-nested maps" do
       input = %{
         outer: %{inner: %{owner_email: "alice@example.com"}}
       }
 
-      assert PIIScrubber.scrub(input) == input
+      assert PIIScrubber.scrub(input) == %{
+               outer: %{inner: %{owner_email_masked: "a***@example.com"}}
+             }
     end
 
     test "is idempotent — scrubbing twice produces the same result" do

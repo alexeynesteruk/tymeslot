@@ -4,13 +4,16 @@ defmodule Tymeslot.MeetingPayments.DataRetention do
   the financial records that EU and Swiss commercial law require us to
   keep (typically up to ten years).
 
-  `anonymise_host/1` runs four writes inside a single transaction:
+  `anonymise_host/1` runs the retention writes inside a single transaction:
 
     * `BookingPaymentQueries.anonymise_for_host/2` — scrubs attendee PII
       (`attendee_email`, `attendee_name`, `meeting_type_name`,
       `booking_theme_id`) on every booking_payment for the host while
-      retaining the host snapshot fields (`host_email`, `host_name`,
-      `host_user_id`).
+       retaining the host snapshot fields (`host_email`, `host_name`,
+       `host_user_id`).
+    * Scheduler meetings lose attendee identity, free-text intake, and custom
+      field answers while retaining immutable service snapshots. Expired
+      management and follow-up token hashes are deleted.
     * `PaymentQueries.anonymise_for_host/2` — nilifies `user_id` on
       `payment_transactions` and stamps `host_deleted_at`. Host snapshot
       fields (`host_email`, `host_name`) are retained as the
@@ -32,7 +35,10 @@ defmodule Tymeslot.MeetingPayments.DataRetention do
   """
 
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
+  alias Tymeslot.Bookings.ManagementTokens
+  alias Tymeslot.Meetings.MeetingSchema
   alias Tymeslot.MeetingPayments.ConnectAccountQueries
+  alias Tymeslot.MyPawTrainer.FollowUps
   alias Tymeslot.Payments.PaymentQueries
   alias Tymeslot.Payments.SubscriptionInvoiceQueries
   alias Tymeslot.Repo
@@ -44,6 +50,9 @@ defmodule Tymeslot.MeetingPayments.DataRetention do
     result =
       Repo.transaction(fn ->
         BookingPaymentQueries.anonymise_for_host(user_id, now)
+        anonymise_meetings(user_id, now)
+        ManagementTokens.purge_expired(user_id, now)
+        FollowUps.purge_expired(user_id, now)
         PaymentQueries.anonymise_for_host(user_id, now)
         SubscriptionInvoiceQueries.anonymise_for_host(user_id, now)
         ConnectAccountQueries.soft_delete_for_user(user_id, now)
@@ -54,5 +63,24 @@ defmodule Tymeslot.MeetingPayments.DataRetention do
       {:ok, :ok} -> :ok
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp anonymise_meetings(user_id, now) do
+    import Ecto.Query
+
+    from(meeting in MeetingSchema,
+      where: meeting.organizer_user_id == ^user_id
+    )
+    |> Repo.update_all(
+      set: [
+        attendee_name: "[deleted]",
+        attendee_email: "deleted@example.invalid",
+        attendee_phone: nil,
+        attendee_message: nil,
+        attendee_company: nil,
+        custom_field_answers: %{},
+        updated_at: now
+      ]
+    )
   end
 end

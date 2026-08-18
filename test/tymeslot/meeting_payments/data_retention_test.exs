@@ -6,6 +6,11 @@ defmodule Tymeslot.MeetingPayments.DataRetentionTest do
 
   alias Tymeslot.MeetingPayments.ConnectAccountQueries
   alias Tymeslot.MeetingPayments.DataRetention
+  alias Tymeslot.MeetingPayments.BookingPaymentAudits
+  alias Tymeslot.Bookings.ManagementTokenSchema
+  alias Tymeslot.Meetings.MeetingSchema
+  alias Tymeslot.MyPawTrainer.FollowUpEntitlementSchema
+  alias Tymeslot.MyPawTrainer.FollowUpLinkSchema
   alias Tymeslot.Payments.SubscriptionInvoiceQueries
   alias Tymeslot.Payments.SubscriptionInvoiceSchema
 
@@ -121,6 +126,118 @@ defmodule Tymeslot.MeetingPayments.DataRetentionTest do
     test "is a no-op when the user has no payment-related rows" do
       user = insert(:user)
       assert :ok = DataRetention.anonymise_host(user.id)
+    end
+
+    test "scrubs scheduler intake and expired token hashes while retaining financial facts" do
+      user = insert(:user)
+
+      meeting =
+        insert(:meeting,
+          organizer_user_id: user.id,
+          attendee_name: "Client Person",
+          attendee_email: "client@example.com",
+          attendee_phone: "+1 904 555 0100",
+          attendee_message: "Sensitive context",
+          custom_field_answers: %{
+            "dog_name" => "Pepper",
+            "zip_code" => "32084",
+            "main_concern" => "Growling",
+            "brief_context" => "Sensitive history",
+            "desired_result" => "Calmer meals"
+          },
+          service_snapshot: %{
+            "service_id" => "online-consultation",
+            "amount_cents" => 14_000,
+            "currency" => "usd"
+          }
+        )
+
+      payment =
+        insert(:booking_payment,
+          meeting: meeting,
+          host_user_id: user.id,
+          attendee_name: "Client Person",
+          attendee_email: "client@example.com",
+          amount_cents: 14_000,
+          currency: "usd",
+          stripe_charge_id: "ch_retained",
+          service_snapshot: meeting.service_snapshot
+        )
+
+      expired_at = DateTime.utc_now(:second) |> DateTime.add(-1, :day)
+
+      management_token =
+        %ManagementTokenSchema{}
+        |> ManagementTokenSchema.changeset(%{
+          meeting_id: meeting.id,
+          token_hash: :crypto.hash(:sha256, "management-secret"),
+          attendee_hash: :crypto.hash(:sha256, "client@example.com"),
+          purpose: "reschedule",
+          expires_at: expired_at
+        })
+        |> Repo.insert!()
+
+      entitlement =
+        %FollowUpEntitlementSchema{}
+        |> FollowUpEntitlementSchema.changeset(%{
+          source_meeting_id: meeting.id,
+          owner_user_id: user.id,
+          attendee_hash: :crypto.hash(:sha256, "client@example.com"),
+          status: "available",
+          meeting_timezone: "America/New_York",
+          not_before: DateTime.add(expired_at, -5, :day),
+          expires_at: expired_at
+        })
+        |> Repo.insert!()
+
+      follow_up_link =
+        %FollowUpLinkSchema{}
+        |> FollowUpLinkSchema.changeset(%{
+          entitlement_id: entitlement.id,
+          token_hash: :crypto.hash(:sha256, "follow-up-secret"),
+          attendee_hash: :crypto.hash(:sha256, "client@example.com"),
+          delivered_at: DateTime.add(expired_at, -1, :day)
+        })
+        |> Repo.insert!()
+
+      {:ok, audit} =
+        BookingPaymentAudits.append(%{
+          booking_payment_id: payment.id,
+          meeting_id: meeting.id,
+          actor_type: "owner",
+          actor_user_id: user.id,
+          action: "charge_succeeded",
+          amount_cents: 14_000,
+          result: "succeeded",
+          stripe_object_id: "ch_retained"
+        })
+
+      assert :ok = DataRetention.anonymise_host(user.id)
+
+      retained = Repo.reload(payment)
+      assert retained.amount_cents == 14_000
+      assert retained.currency == "usd"
+      assert retained.stripe_charge_id == "ch_retained"
+      assert retained.service_snapshot == meeting.service_snapshot
+      assert is_nil(retained.attendee_name)
+      assert is_nil(retained.attendee_email)
+
+      scrubbed = Repo.get!(MeetingSchema, meeting.id)
+      assert scrubbed.attendee_name == "[deleted]"
+      assert scrubbed.attendee_email == "deleted@example.invalid"
+      assert is_nil(scrubbed.attendee_phone)
+      assert is_nil(scrubbed.attendee_message)
+      assert scrubbed.custom_field_answers == %{}
+      assert scrubbed.service_snapshot == meeting.service_snapshot
+
+      refute Repo.get(ManagementTokenSchema, management_token.id)
+      refute Repo.get(FollowUpLinkSchema, follow_up_link.id)
+
+      retained_audit = Repo.reload(audit)
+      assert retained_audit.action == "charge_succeeded"
+      assert retained_audit.result == "succeeded"
+      assert retained_audit.amount_cents == 14_000
+      assert retained_audit.stripe_object_id == "ch_retained"
     end
 
     test "nilifies user_id, stamps host_deleted_at, and retains the VAT document surface on captured invoices" do

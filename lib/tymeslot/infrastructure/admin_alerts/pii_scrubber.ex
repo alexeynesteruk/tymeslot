@@ -15,9 +15,8 @@ defmodule Tymeslot.Infrastructure.AdminAlerts.PIIScrubber do
      other free-form field.
 
   The scrubber is idempotent: running it on already-masked data is a
-  no-op. It walks one level of nesting. Alerts should not have deeply
-  nested payloads; doubly-nested maps are deliberately left alone so
-  operators notice when a call site attaches something it shouldn't.
+  no-op. It walks nested maps and lists so private fields cannot bypass the
+  boundary by being attached under a request or context key.
 
   Internal IDs (`user_id`, `meeting_id`, `dispute_id`, `charge_id`,
   `customer_id`, `event_id`, `integration_id`) are left visible — they
@@ -27,6 +26,11 @@ defmodule Tymeslot.Infrastructure.AdminAlerts.PIIScrubber do
 
   @pii_keys ~w(owner_email customer_email email user_email recipient_email)a
   @pii_key_strings Enum.map(@pii_keys, &Atom.to_string/1)
+  @private_keys ~w(
+    attendee_name attendee_email attendee_phone dog_name zip_code main_concern
+    brief_context desired_result setup_intent payment_method card
+  )a
+  @private_key_strings Enum.map(@private_keys, &Atom.to_string/1)
 
   # Compile-time map from PII atom key → masked atom key, avoiding dynamic
   # atom creation at runtime.
@@ -37,6 +41,7 @@ defmodule Tymeslot.Infrastructure.AdminAlerts.PIIScrubber do
 
   # Matches an email address embedded anywhere in a string.
   @email_regex ~r/([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/
+  @card_regex ~r/\b(?:\d[ -]*?){13,19}\b/
 
   @spec scrub(map()) :: map()
   def scrub(payload) when is_map(payload) do
@@ -45,8 +50,11 @@ defmodule Tymeslot.Infrastructure.AdminAlerts.PIIScrubber do
 
   defp scrub_entry({key, value}, acc) do
     cond do
+      private?(key) -> acc
       denylisted?(key) -> handle_denylisted(acc, key, value)
-      is_map(value) -> Map.put(acc, key, scrub_nested(value))
+      is_struct(value) -> Map.put(acc, key, value)
+      is_map(value) -> Map.put(acc, key, scrub(value))
+      is_list(value) -> Map.put(acc, key, Enum.map(value, &scrub_value/1))
       is_binary(value) -> Map.put(acc, key, sweep_string(value))
       true -> Map.put(acc, key, value)
     end
@@ -55,6 +63,10 @@ defmodule Tymeslot.Infrastructure.AdminAlerts.PIIScrubber do
   defp denylisted?(key) when is_atom(key), do: key in @pii_keys
   defp denylisted?(key) when is_binary(key), do: key in @pii_key_strings
   defp denylisted?(_key), do: false
+
+  defp private?(key) when is_atom(key), do: key in @private_keys
+  defp private?(key) when is_binary(key), do: key in @private_key_strings
+  defp private?(_key), do: false
 
   defp handle_denylisted(acc, key, value) when is_binary(value) do
     case mask_email(String.trim(value)) do
@@ -68,19 +80,18 @@ defmodule Tymeslot.Infrastructure.AdminAlerts.PIIScrubber do
   defp masked_key(key) when is_atom(key), do: Map.fetch!(@masked_atom_keys, key)
   defp masked_key(key) when is_binary(key), do: key <> "_masked"
 
-  # Applies the same denylist + regex sweep as the top level, but skips
-  # any value that is itself a map so doubly-nested maps are left alone.
-  defp scrub_nested(map) when is_map(map) do
-    Enum.reduce(map, %{}, fn
-      {key, value}, acc when is_map(value) -> Map.put(acc, key, value)
-      entry, acc -> scrub_entry(entry, acc)
-    end)
-  end
+  defp scrub_value(value) when is_struct(value), do: value
+  defp scrub_value(value) when is_map(value), do: scrub(value)
+  defp scrub_value(value) when is_binary(value), do: sweep_string(value)
+  defp scrub_value(value), do: value
 
   defp sweep_string(string) do
-    Regex.replace(@email_regex, string, fn _full, first_char, domain ->
-      "#{first_char}***#{domain}"
-    end)
+    masked_emails =
+      Regex.replace(@email_regex, string, fn _full, first_char, domain ->
+        "#{first_char}***#{domain}"
+      end)
+
+    Regex.replace(@card_regex, masked_emails, "[REDACTED CARD]")
   end
 
   defp mask_email(value) do

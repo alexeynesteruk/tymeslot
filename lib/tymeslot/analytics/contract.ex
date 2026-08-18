@@ -25,6 +25,10 @@ defmodule Tymeslot.Analytics.Contract do
   }
 
   @pii_denylist ~w(user_id email username name token ip ip_address phone customer_id)a
+  @scheduler_private_keys ~w(
+    attendee_name attendee_email attendee_phone dog_name zip_code main_concern
+    brief_context desired_result setup_intent payment_method card
+  )a
 
   @doc "The Core event registry: event name => allowed categorical prop keys."
   @spec registry() :: %{optional(String.t()) => [atom()]}
@@ -86,6 +90,9 @@ defmodule Tymeslot.Analytics.Contract do
 
     Enum.reduce_while(props, :ok, fn {key, value}, :ok ->
       cond do
+        key in @scheduler_private_keys ->
+          {:halt, {:error, {[key], "event #{name}: prop #{inspect(key)} contains private data"}}}
+
         key not in allowed ->
           {:halt,
            {:error,

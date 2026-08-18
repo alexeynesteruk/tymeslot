@@ -143,6 +143,24 @@ defmodule Tymeslot.MyPawTrainer.FollowUps do
 
   def redeem(_raw, _params), do: {:error, :invalid}
 
+  @doc "Deletes expired follow-up token hashes owned by the host."
+  @spec purge_expired(pos_integer(), DateTime.t()) :: {non_neg_integer(), nil}
+  def purge_expired(owner_user_id, %DateTime{} = current_time)
+      when is_integer(owner_user_id) do
+    expired_ids =
+      from(link in Link,
+        join: entitlement in Entitlement,
+        on: entitlement.id == link.entitlement_id,
+        where:
+          entitlement.owner_user_id == ^owner_user_id and
+            entitlement.expires_at <= ^current_time,
+        select: link.id
+      )
+
+    from(link in Link, where: link.id in subquery(expired_ids))
+    |> Repo.delete_all()
+  end
+
   defp eligible_source?(%{status: "completed", service_snapshot: %{"service_id" => id}}),
     do: id in @eligible_services
 

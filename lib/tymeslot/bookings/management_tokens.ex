@@ -115,6 +115,21 @@ defmodule Tymeslot.Bookings.ManagementTokens do
     end
   end
 
+  @doc "Deletes expired token hashes for meetings owned by the host."
+  @spec purge_expired(pos_integer(), DateTime.t()) :: {non_neg_integer(), nil}
+  def purge_expired(owner_user_id, %DateTime{} = now) when is_integer(owner_user_id) do
+    owned_ids =
+      from(t in ManagementTokenSchema,
+        join: meeting in MeetingSchema,
+        on: meeting.id == t.meeting_id,
+        where: meeting.organizer_user_id == ^owner_user_id and t.expires_at <= ^now,
+        select: t.id
+      )
+
+    from(t in ManagementTokenSchema, where: t.id in subquery(owned_ids))
+    |> Repo.delete_all()
+  end
+
   defp issue_email_url(meeting) do
     with {:ok, %{username: username}} when is_binary(username) <-
            ProfileQueries.get_by_user_id(meeting.organizer_user_id),

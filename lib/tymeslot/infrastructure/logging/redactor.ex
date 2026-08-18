@@ -16,7 +16,10 @@ defmodule Tymeslot.Infrastructure.Logging.Redactor do
     # `password[a-z_]*` so `password_confirmation`, `new_password` and friends
     # are covered too — an alphanumeric suffix would otherwise break the match
     # and leave the value in the clear.
-    {~r/"?password[a-z_]*"?[^a-zA-Z0-9]+"[^"]+"/i, "password: \"[REDACTED]\""}
+    {~r/"?password[a-z_]*"?[^a-zA-Z0-9]+"[^"]+"/i, "password: \"[REDACTED]\""},
+    {~r/"?(?:attendee_name|attendee_email|attendee_phone|dog_name|zip_code|main_concern|brief_context|desired_result|setup_intent|payment_method|card)"?\s*(?:=>|:|=)\s*"[^"]*"/i,
+     "private_field: \"[REDACTED]\""},
+    {~r/\b(?:\d[ -]*?){13,19}\b/, "[REDACTED CARD]"}
   ]
 
   @doc """
