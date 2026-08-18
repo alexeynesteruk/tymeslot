@@ -1,6 +1,6 @@
 # My Paw Trainer Scheduler Status
 
-Updated: 2026-08-17
+Updated: 2026-08-18
 
 ## Checkout
 
@@ -163,10 +163,15 @@ both remotes were fetched instead of creating a duplicate clone.
   focused deployment contract tests pass. The requested image command
   `docker buildx build --platform linux/arm64 --load -f Dockerfile.mypawtrainer -t tymeslot:mypawtrainer-plan-check .`
   could not start locally because the `docker` executable is unavailable
-  (`command not found`, exit 127); no successful image load is claimed. No VM 2
-  deployment occurred. Production booking stays off, event types remain
-  inactive, and no ZIPs are seeded. Next implementation task is Task 16.
-- Production booking activation: prohibited at this stage.
+  (`command not found`, exit 127). The same Dockerfile later built on VM 2 as
+  `tymeslot:702c589f` (`linux/arm64`, digest
+  `sha256:c91381943134ce865c2396d0f992c287936b9eca95ef35d9b93330fd7c1b5657`).
+  Production booking stays off, event types remain inactive, and no ZIPs are
+  seeded.
+- Task 16 full gate and test-mode acceptance: started on 2026-08-18 and is
+  **not accepted**. Evidence is in the Task 16 gate section below. Next
+  implementation work is to close the remaining Task 16 gaps or wait for
+  Anna's Task 17 inputs. Production booking activation remains prohibited.
 
 An older implementation worktree also exists at:
 
@@ -186,45 +191,99 @@ Do not edit the same task in both locations.
 - Observed host fingerprint:
   `SHA256:qxxvyJYrAJvDHh3nh3VBTkwgINPC+k+A85bVL8ILDoc`
 
-The VM was updated and rebooted. On 2026-08-17 a production-disabled host
-install started Tymeslot `d85a30f3` on loopback only. `rpcbind` is masked,
+The VM was updated and rebooted. On 2026-08-18 a production-disabled host
+image `tymeslot:702c589f` replaced `tymeslot:d85a30f3`. The previous image
+remains on the host for application rollback. `rpcbind` is masked,
 UFW/fail2ban/Docker/Nginx are active, and `GET /healthcheck` on
-`127.0.0.1:4000` returns HTTP 200. Host Nginx now publishes
-`book.mypawtrainer.com` over HTTPS. Event types stay inactive. No ZIPs are
-seeded. Public booking and EspoCRM remain off. A scheduler NSG, reserved
-public IP, and independent console fingerprint confirmation are still
-outstanding.
+`127.0.0.1:4000` returns HTTP 200 with database and Oban ok. Host Nginx
+publishes `book.mypawtrainer.com` over HTTPS. The process runs as `app`.
+`REGISTRATION_ENABLED`, `MEETING_PAYMENTS_ENABLED`, `ENABLE_GOOGLE_AUTH`,
+`PRICE_PROJECTION_DELIVERY_ENABLED`, and `CRM_PROJECTION_DELIVERY_ENABLED`
+are all `false`. Event types stay inactive. No ZIPs are seeded. Public
+booking and EspoCRM remain off. A scheduler NSG, reserved public IP, and
+independent console fingerprint confirmation are still outstanding.
 
 ## Toolchain checkpoint
 
-Local focused verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL
-17.11 with explicit Homebrew paths. Task 5 focused suites plus bookings,
-meetings, and calendar regression passed 2436 tests. The two-connection
-same-slot race passed separately (2 tests) so committed rows do not leak
-into the sandbox suite. Formatting and `git diff --check` pass. The
-complete gate has not been re-run in this change.
+Local verification uses Elixir 1.20.3, OTP 28.5.0.5, and PostgreSQL 17.11
+with explicit Homebrew paths. Formatting and `git diff --check` pass.
+
+## Task 16 gate
+
+Run on 2026-08-18 from
+`/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7` at `702c589f`
+plus the management-lookup test/spec alignment in this change.
+
+| Command | Result |
+| --- | --- |
+| `mix format --check-formatted` | pass |
+| `mix compile --warnings-as-errors` | pass |
+| `mix credo --strict` | fail, exit 31. Project `.credo.exs` has `strict: false`. Default `mix credo` also exits 31 (26 consistency, 6 warnings, 2 refactor, 7 readability, 102 design). Not cleaned in this task. |
+| `mix sobelow` | exit 0. Pre-existing medium-confidence `XSS.HTML` in `lib/tymeslot_web/controllers/dev/embed_test_controller.ex:45`. No MPT file involved. |
+| `mix deps.audit` | pass, no vulnerabilities found |
+| `mix excellent_migrations.check_safety` | fail, exit 1. MPT migrations after `start_after` lack `safety-assured` comments. SQL was not changed. |
+| `mix test --exclude mpt_concurrency` | 12487/12489 passed, 115 excluded. Failures: stale `validate_and_load_meeting/3` string call (fixed and re-run: 1 passed) and a flaky calendar subscription LiveView assertion that passed on rerun. |
+| same-slot + webhooks + refunds + retention + security | 82 passed, including the two-connection same-slot race |
+| `MIX_ENV=dev mix gettext.extract --check-up-to-date` | fail. Out of date: `booking.pot`, `dashboard_bookings.pot`, `dashboard_common.pot`, `dashboard_payments.pot`, `emails.pot`. Not extracted in this task. |
+| `MIX_ENV=dev mix dialyzer` | fail, exit 2. After ignores: 10 remaining (card setup guards, calendar reconcile discard, CRM `backoff/1` not exported, payments rate-limit tuple, meeting-management spec/call). Spec now says `map()`; Dialyzer was not re-run after that one-line change. |
+| `git diff --check` | pass |
+
+### Test-mode acceptance
+
+Automated ExUnit acceptance in `test/e2e/mypawtrainer_booking_acceptance_test.exs`
+and `test/e2e/mypawtrainer_follow_up_acceptance_test.exs` covers the three
+direct services with fake Stripe and a fake Google provider: setup-mode
+Checkout, zero immediate charge, immutable $49/$140/$190 snapshots, ZIP only
+for in-home, Google busy rejection, and payment-free follow-up. That is not
+live Stripe test-mode or a real Google Calendar.
+
+Live host acceptance is blocked: `MEETING_PAYMENTS_ENABLED=false`, no Stripe
+keys on VM 2, Google login off, event types inactive, no ZIPs seeded.
+
+| Service | Setup charge | Confirmation | Calendar | Manual charge | Recovery | Refund |
+| --- | --- | --- | --- | --- | --- | --- |
+| discovery-call $49 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
+| online-consultation $140 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
+| in-home-consultation $190 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
+
+### Backup, restore, rollback
+
+- Pre-image backup: `/var/backups/tymeslot/tymeslot.20260818T120120Z.dump.age`
+- Post-image backup: `/var/backups/tymeslot/tymeslot.20260818T122656Z.dump.age`
+- Disposable restore rehearsal of the pre-image backup: `tables=39 users=1`
+  while live Tymeslot stayed healthy
+- Application rollback to `tymeslot:d85a30f3` was **not** executed. Newer
+  migrations have already run. Automatic down-migrations are prohibited.
+- EspoCRM is not running. Tymeslot stays healthy with CRM delivery disabled.
+  That is the current fail-closed interface-failure proof.
+
+### Image
+
+- Tag: `tymeslot:702c589f`
+- Digest: `sha256:c91381943134ce865c2396d0f992c287936b9eca95ef35d9b93330fd7c1b5657`
+- Arch: `linux/arm64`
+- Health: HTTP 200, `oban=ok`, `database=ok`
 
 ## Next safe action
 
-Task 15 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
-SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
-local encrypted PostgreSQL backup and a disposable restore rehearsal both
-exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 16 test-mode acceptance and release gates. Website booking
-URLs stay off. CRM projection delivery and client and dog producers stay
-disabled.
+Do not activate production booking or seed ZIPs. Website booking URLs stay
+off. Close remaining Task 16 gaps (gettext POT, migration safety comments,
+Dialyzer, live Stripe test-mode) or collect Anna's Task 17 inputs. Do not
+treat the current host image as a customer launch.
 
 ## Production blockers
 
+- Task 16 is not accepted. Credo strict, gettext, excellent_migrations, and
+  Dialyzer are red. Live Stripe/Google test-mode has not run.
 - Price and minimum booking projection events have transactional outbox and
-  signed delivery locally, but production acceptance, retention, and
-  observability are not complete. CRM delivery remains disabled.
-- Concurrency, webhook, security, and browser gates have not run.
-- ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
-- Anna has not supplied all production booking and authorization values.
-- Anna's scheduler user ID is not approved, so production provisioning remains
-  blocked. The local operation accepts an explicit owner ID only, provisions
-  exactly the three direct event types at catalog initial price/version 1, and
-  is idempotent and owner-scoped after the account exists.
-- Live Google, Stripe, SMTP, and webhook configuration is not complete.
-- Test-mode and manual acceptance have not passed.
+  signed delivery locally. CRM delivery remains disabled.
+- Anna has not supplied hours, Eastern timezone confirmation, notice, window,
+  buffer, rescheduling deadline, ZIP list, saved-card authorization,
+  cancellation/refund policy, safety wording, monthly/assistant-dog operating
+  details, replacement FAQ, photography, Instagram decision, or admin
+  recovery procedure.
+- Anna's scheduler user ID is not approved, so production provisioning
+  remains blocked.
+- Live Google Calendar connect, Stripe Connect, SMTP/Resend, and webhooks
+  are not complete.
+- Measured host thresholds and a live `--apply` restore remain outstanding.

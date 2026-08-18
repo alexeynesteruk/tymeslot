@@ -15,6 +15,8 @@ Tymeslot fork.
 - Fork: `https://github.com/alexeynesteruk/tymeslot`
 - Upstream: `https://github.com/Tymeslot/tymeslot`
 - Local checkout: `/Users/anesteruk/Documents/tymeslot`
+- Active worktree: `/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7`
+- Branch: `feat/mpt-task7`
 - Audited baseline: `5c19a7510eaae9df8a7a6737133d9242e7a29b59`
 - Scheduler hostname: `book.mypawtrainer.com`
 - Website repository: `/Users/anesteruk/Documents/mypawtrainer.com`
