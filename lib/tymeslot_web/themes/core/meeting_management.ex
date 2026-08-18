@@ -18,7 +18,7 @@ defmodule TymeslotWeb.Themes.Core.MeetingManagement do
   ensuring that only the meeting belonging to the profile owner can be accessed.
   This prevents IDOR attacks on the cancel and reschedule routes.
   """
-  @spec validate_and_load_meeting(String.t(), atom(), integer()) ::
+  @spec validate_and_load_meeting(map(), atom(), integer()) ::
           {:ok, map()} | {:error, String.t()}
   def validate_and_load_meeting(%{"management_token" => token}, :reschedule, organizer_user_id) do
     case ManagementTokens.resolve(token) do

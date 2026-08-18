@@ -283,7 +283,7 @@ defmodule Tymeslot.Meetings.CalendarEventSyncTest do
 
       assert {:ok, %{id: meeting_id}} =
                MeetingManagement.validate_and_load_meeting(
-                 original_uid,
+                 %{"meeting_uid" => original_uid},
                  :cancel,
                  meeting.organizer_user_id
                )
