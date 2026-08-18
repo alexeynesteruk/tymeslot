@@ -153,7 +153,19 @@ both remotes were fetched instead of creating a duplicate clone.
   `tests/components/booking-link.test.tsx` passed 13 tests with Vitest. Production
   booking stays off, event types remain inactive, and no ZIPs are seeded. Next
   implementation task is Task 15 image and platform interface contracts.
-- Deployment assets: not started.
+- Task 15 image and platform interface contracts: implemented locally on
+  2026-08-17. The public application repository now defines a non-root
+  `linux/arm64` release image, internal port 4000, `GET /healthcheck` liveness
+  and readiness behavior, release migrations, an immutable commit-SHA GHCR
+  workflow, AGPL source labels, and a documented runtime environment and
+  persistent-state interface. Host Compose, Nginx, deployment, rollback, SSH,
+  backup, restore, and systemd assets remain outside this repository. The four
+  focused deployment contract tests pass. The requested image command
+  `docker buildx build --platform linux/arm64 --load -f Dockerfile.mypawtrainer -t tymeslot:mypawtrainer-plan-check .`
+  could not start locally because the `docker` executable is unavailable
+  (`command not found`, exit 127); no successful image load is claimed. No VM 2
+  deployment occurred. Production booking stays off, event types remain
+  inactive, and no ZIPs are seeded. Next implementation task is Task 16.
 - Production booking activation: prohibited at this stage.
 
 An older implementation worktree also exists at:
@@ -194,11 +206,11 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 14 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+Task 15 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
 SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
 exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 15 image and platform interface contracts. Website booking
+Task 16 test-mode acceptance and release gates. Website booking
 URLs stay off. CRM projection delivery and client and dog producers stay
 disabled.
 

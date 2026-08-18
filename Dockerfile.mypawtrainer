@@ -1,0 +1,79 @@
+# syntax=docker/dockerfile:1
+
+FROM hexpm/elixir:1.20.3-erlang-28.5.0.5-debian-trixie-20260803-slim AS build
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    MIX_ENV=prod \
+    NODE_ENV=production \
+    DEPLOYMENT_TYPE=docker
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    build-essential \
+    curl \
+    git \
+    libncurses5-dev \
+    libssl-dev \
+    m4 \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY mix.exs mix.lock ./
+COPY config ./config
+RUN mix deps.get --only prod
+
+COPY . .
+RUN rm -rf priv/static/assets/ \
+    && mix do deps.compile + compile \
+    && for i in 1 2 3 4 5; do \
+         mix do tailwind.install + esbuild.install && break || sleep 5; \
+       done \
+    && npm ci --prefix assets \
+    && mix assets.deploy \
+    && mix release tymeslot
+
+FROM debian:trixie-slim AS release
+
+LABEL org.opencontainers.image.source="https://github.com/alexeynesteruk/tymeslot" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    ffmpeg \
+    libncurses6 \
+    libssl3 \
+    locales \
+    postgresql-client \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && locale-gen C.UTF-8 \
+    && useradd --create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /app/data/uploads /app/data/tzdata \
+    && chown -R app:app /app
+
+WORKDIR /app
+COPY --from=build --chown=app:app /app/_build/prod/rel/tymeslot ./
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    MIX_ENV=prod \
+    DEPLOYMENT_TYPE=docker \
+    PHX_SERVER=true \
+    PORT=4000 \
+    TYMESLOT_EMBEDDED_DB=false
+
+EXPOSE 4000
+VOLUME ["/app/data"]
+
+USER app
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl --fail --silent --show-error http://127.0.0.1:4000/healthcheck >/dev/null || exit 1
+
+CMD ["/bin/sh", "-c", "bin/tymeslot eval 'Ecto.Migrator.with_repo(Tymeslot.Repo, &Ecto.Migrator.run(&1, :up, all: true))' && exec bin/tymeslot start"]
