@@ -32,6 +32,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.SingleSelect do
         value={opt["key"]}
         selected?={@value == opt["key"]}
         event="answer"
+        field_id={@definition["id"]}
         myself={@myself}
       >
         {opt["label"]}
@@ -46,6 +47,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.SingleSelect do
       id={"cq-form-#{@definition["id"]}"}
       phx-change="answer"
       phx-submit="next"
+      phx-value-id={@definition["id"]}
       phx-target={@myself}
     >
       <.input

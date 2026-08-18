@@ -11,7 +11,7 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.CustomQuestionsCompone
   use Gettext, backend: TymeslotWeb.Gettext
 
   alias TymeslotWeb.Themes.Shared.CustomQuestions.Events
-  alias TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.Renderer, as: InputRenderer
+  alias TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.PageFields
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
@@ -52,21 +52,19 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.CustomQuestionsCompone
               </div>
             <% end %>
 
-            <h2 class="slide-title">{@definition["label"]}</h2>
+            <h2 class="slide-title">{@page_title}</h2>
 
-            <%= if @definition["help_text"] do %>
+            <%= if @definition["help_text"] && length(@definitions) == 1 do %>
               <p class="rhythm-questions-help">{@definition["help_text"]}</p>
             <% end %>
 
-            <InputRenderer.render
-              definition={@definition}
-              value={@value}
+            <PageFields.render
+              definitions={@definitions}
+              answers={@answers}
+              errors={@field_errors}
               myself={@myself}
+              error_class="rhythm-form-error"
             />
-
-            <%= if @error do %>
-              <p class="rhythm-form-error">{@error}</p>
-            <% end %>
 
             <div class="slide-actions horizontal">
               <button

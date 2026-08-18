@@ -17,7 +17,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Events do
           {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("answer", params, socket) do
     %Engine{} = engine = socket.assigns.engine
-    definition = Engine.current_definition(engine)
+    definition = definition_for_answer(engine, params)
     id = definition["id"]
     raw = Map.get(params, "value", params)
     value = AnswerNormaliser.normalise(raw, definition["type"])
@@ -25,9 +25,11 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Events do
     {:noreply, socket}
   end
 
-  def handle_event("multi_toggle", %{"value" => key}, socket) do
+  def handle_event("multi_toggle", params, socket) do
     %Engine{} = engine = socket.assigns.engine
-    id = Engine.current_definition(engine)["id"]
+    definition = definition_for_answer(engine, params)
+    id = definition["id"]
+    key = Map.get(params, "value")
     current = Map.get(engine.answers, id) || []
     next = if key in current, do: List.delete(current, key), else: [key | current]
     send(self(), {:step_event, :questions, :answer, {id, next}})
@@ -48,15 +50,27 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Events do
           Phoenix.LiveView.Socket.assigns()
   def assign_render_state(assigns) do
     engine = assigns.engine
+    definitions = Engine.current_definitions(engine)
     definition = Engine.current_definition(engine)
     total = Engine.total(engine)
 
     assigns
+    |> assign(:definitions, definitions)
     |> assign(:definition, definition)
-    |> assign(:value, Map.get(engine.answers, definition["id"]))
-    |> assign(:error, Map.get(engine.errors, definition["id"]))
+    |> assign(:page_title, Engine.page_title(engine))
+    |> assign(:value, definition && Map.get(engine.answers, definition["id"]))
+    |> assign(:error, definition && Map.get(engine.errors, definition["id"]))
+    |> assign(:answers, engine.answers)
+    |> assign(:field_errors, engine.errors)
     |> assign(:index, engine.current_index)
     |> assign(:total, total)
     |> assign(:last?, engine.current_index == total - 1)
+  end
+
+  defp definition_for_answer(engine, params) do
+    page = Engine.current_definitions(engine)
+    id = Map.get(params, "id")
+
+    Enum.find(page, &(&1["id"] == id)) || Engine.current_definition(engine)
   end
 end

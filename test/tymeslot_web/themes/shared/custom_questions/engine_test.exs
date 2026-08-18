@@ -179,6 +179,20 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.EngineTest do
     assert normalized["acquisition_age"] == "unknown"
   end
 
+  test "grouped consultation questions occupy four pages" do
+    snapshot = Intake.question_snapshot_for("online-consultation")
+    engine = Engine.init(snapshot)
+
+    assert Engine.total(engine) == 4
+
+    assert Enum.map(Engine.current_definitions(engine), & &1["id"]) == [
+             "dog_name",
+             "breed_or_mix"
+           ]
+
+    assert Engine.page_title(engine) == "About the dog"
+  end
+
   test "put_errors/2 stores field errors and jumps to the first invalid question" do
     snapshot = Intake.question_snapshot_for("online-consultation")
     last_index = length(snapshot) - 1
@@ -191,7 +205,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.EngineTest do
       })
 
     assert updated.errors["dog_age_unit"] == "Choose weeks, months, or years"
-    assert Enum.at(updated.definitions, updated.current_index)["id"] == "dog_age_unit"
+    assert Enum.any?(Engine.current_definitions(updated), &(&1["id"] == "dog_age_unit"))
     refute updated.current_index == last_index
   end
 end

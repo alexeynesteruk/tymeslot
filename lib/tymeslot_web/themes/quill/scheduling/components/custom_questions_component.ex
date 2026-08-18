@@ -13,7 +13,7 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Components.CustomQuestionsComponen
   import TymeslotWeb.Components.CoreComponents
 
   alias TymeslotWeb.Themes.Shared.CustomQuestions.Events
-  alias TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.Renderer, as: InputRenderer
+  alias TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.PageFields
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
@@ -51,22 +51,20 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Components.CustomQuestionsComponen
                     class="booking-heading-wrapper"
                     title_class="section-header booking-heading"
                   >
-                    {@definition["label"]}
+                    {@page_title}
                   </.section_header>
 
-                  <%= if @definition["help_text"] do %>
+                  <%= if @definition["help_text"] && length(@definitions) == 1 do %>
                     <p class="text-quill-secondary mb-2">{@definition["help_text"]}</p>
                   <% end %>
 
-                  <InputRenderer.render
-                    definition={@definition}
-                    value={@value}
+                  <PageFields.render
+                    definitions={@definitions}
+                    answers={@answers}
+                    errors={@field_errors}
                     myself={@myself}
+                    error_class="form-field__error"
                   />
-
-                  <%= if @error do %>
-                    <p class="form-field__error">{@error}</p>
-                  <% end %>
 
                   <div class="booking-actions">
                     <.action_button

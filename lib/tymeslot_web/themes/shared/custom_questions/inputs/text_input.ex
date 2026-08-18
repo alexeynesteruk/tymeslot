@@ -39,6 +39,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.TextInput do
       id={"cq-form-#{@definition["id"]}"}
       phx-change="answer"
       phx-submit="next"
+      phx-value-id={@definition["id"]}
       phx-target={@myself}
     >
       <.input

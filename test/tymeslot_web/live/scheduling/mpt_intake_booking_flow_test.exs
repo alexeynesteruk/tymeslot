@@ -48,21 +48,18 @@ defmodule TymeslotWeb.Live.Scheduling.MptIntakeBookingFlowTest do
 
       html = render(view)
       text = html |> Floki.parse_document!() |> Floki.text()
-      assert html =~ "Question 1 of 2"
+      refute html =~ "Question 1 of"
+      assert text =~ "About the dog"
       assert text =~ "Dog's name"
+      assert text =~ "One main question"
       refute html =~ "Enter Your Details"
 
       view
-      |> form("form[phx-submit='next']", %{"value" => "Milo"})
+      |> form("#cq-form-dog_name", %{"value" => "Milo"})
       |> render_change()
 
-      view |> element("button[phx-click='next'][phx-target]") |> render_click()
-
-      assert render(view) =~ "Question 2 of 2"
-      assert render(view) =~ "One main question"
-
       view
-      |> form("form[phx-submit='next']", %{"value" => "How can I make walks easier?"})
+      |> form("#cq-form-main_question", %{"value" => "How can I make walks easier?"})
       |> render_change()
 
       view |> element("button[phx-click='next'][phx-target]") |> render_click()
@@ -88,7 +85,7 @@ defmodule TymeslotWeb.Live.Scheduling.MptIntakeBookingFlowTest do
          %{conn: conn, profile: profile} do
       view = navigate_to_booking_form(conn, profile, nil)
 
-      assert render(view) =~ "Question 1 of 12"
+      assert render(view) =~ "Question 1 of 4"
 
       answers = %{
         "dog_name" => "Milo",
@@ -110,7 +107,7 @@ defmodule TymeslotWeb.Live.Scheduling.MptIntakeBookingFlowTest do
 
       _drain = :sys.get_state(view.pid)
 
-      for _index <- 1..12 do
+      for _index <- 1..4 do
         view |> element("button[phx-click='next'][phx-target]") |> render_click()
       end
 
@@ -141,12 +138,13 @@ defmodule TymeslotWeb.Live.Scheduling.MptIntakeBookingFlowTest do
 
       _drain = :sys.get_state(view.pid)
 
-      for _index <- 1..6 do
+      for _index <- 1..2 do
         view |> element("button[phx-click='next'][phx-target]") |> render_click()
       end
 
       html = render(view)
-      assert html =~ "Question 7 of 12"
+      assert html =~ "Question 3 of 4"
+      assert html =~ "How they came home"
       assert html =~ "Origin"
       assert html =~ ~s(id="cq-form-origin")
 
@@ -154,12 +152,22 @@ defmodule TymeslotWeb.Live.Scheduling.MptIntakeBookingFlowTest do
       |> form("#cq-form-origin", %{"value" => "rescue_shelter"})
       |> render_change()
 
+      view
+      |> form("#cq-form-acquisition_age", %{"value" => "8"})
+      |> render_change()
+
+      view
+      |> element(
+        "input[type='radio'][phx-value-id='acquisition_age_unit'][phx-value-value='months']"
+      )
+      |> render_click()
+
       view |> element("button[phx-click='next'][phx-target]") |> render_click()
 
       html = render(view)
       refute html =~ "Please choose an option"
-      assert html =~ "Question 8 of 12"
-      assert html =~ "Age when acquired"
+      assert html =~ "Question 4 of 4"
+      assert html =~ "What you want help with"
     end
   end
 

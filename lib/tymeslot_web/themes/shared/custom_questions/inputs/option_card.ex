@@ -20,6 +20,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.OptionCard do
   attr :value, :string, required: true, doc: "Option value submitted by the input."
   attr :selected?, :boolean, required: true
   attr :event, :string, required: true, doc: "Phoenix event name fired on click."
+  attr :field_id, :string, default: nil
   attr :myself, :any, required: true
 
   slot :inner_block, required: true
@@ -38,6 +39,7 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.OptionCard do
         checked={@selected?}
         class="sr-only"
         phx-click={@event}
+        phx-value-id={@field_id}
         phx-value-value={@value}
         phx-target={@myself}
       />

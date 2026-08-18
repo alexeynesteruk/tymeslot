@@ -112,18 +112,19 @@ defmodule Tymeslot.MyPawTrainer.IntakeTest do
   test "definitions include the approved sex, spay/neuter, and origin option maps" do
     snapshot = Definitions.for_service("online-consultation")
 
-    assert field(snapshot, "dog_sex") == %{
-             "id" => "dog_sex",
-             "type" => "single_select",
-             "required" => true,
-             "label" => "Sex",
-             "options" => [
-               %{"key" => "female", "label" => "Female"},
-               %{"key" => "male", "label" => "Male"},
-               %{"key" => "intersex", "label" => "Intersex"},
-               %{"key" => "unknown", "label" => "Unknown"}
-             ]
-           }
+    sex = field(snapshot, "dog_sex")
+    assert sex["id"] == "dog_sex"
+    assert sex["type"] == "single_select"
+    assert sex["required"] == true
+    assert sex["label"] == "Sex"
+    assert sex["group"] == "age_and_health"
+
+    assert sex["options"] == [
+             %{"key" => "female", "label" => "Female"},
+             %{"key" => "male", "label" => "Male"},
+             %{"key" => "intersex", "label" => "Intersex"},
+             %{"key" => "unknown", "label" => "Unknown"}
+           ]
 
     assert field(snapshot, "spay_neuter_status")["options"] == [
              %{"key" => "yes", "label" => "Yes"},

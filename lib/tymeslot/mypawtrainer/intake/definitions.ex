@@ -53,8 +53,8 @@ defmodule Tymeslot.MyPawTrainer.Intake.Definitions do
     [
       short_text("client_name", "Your name", true),
       short_text("email", "Email", true),
-      short_text("dog_name", "Dog's name", false),
-      short_text("main_question", "One main question", true)
+      short_text("dog_name", "Dog's name", false, "about_the_dog", "About the dog"),
+      short_text("main_question", "One main question", true, "about_the_dog", "About the dog")
     ]
   end
 
@@ -62,32 +62,97 @@ defmodule Tymeslot.MyPawTrainer.Intake.Definitions do
     [
       short_text("client_name", "Your name", true),
       short_text("email", "Email", true),
-      short_text("dog_name", "Dog's name", true),
-      short_text("breed_or_mix", "Breed or mix", true),
-      short_text("dog_age", "Dog's age", true),
-      select("dog_age_unit", "Age unit", false, @age_unit_options),
-      select("dog_sex", "Sex", true, @sex_options),
-      select("spay_neuter_status", "Spay or neuter status", true, @spay_neuter_options),
-      select("origin", "Origin", true, @origin_options),
-      short_text("acquisition_age", "Age when acquired", true),
-      select("acquisition_age_unit", "Acquisition age unit", false, @age_unit_options),
-      short_text("main_concern", "Main concern", true),
-      short_text("brief_context", "Brief context", true),
-      short_text("desired_result", "Desired result", true)
+      short_text("dog_name", "Dog's name", true, "about_the_dog", "About the dog"),
+      short_text("breed_or_mix", "Breed or mix", true, "about_the_dog", "About the dog"),
+      short_text("dog_age", "Dog's age", true, "age_and_health", "Age and health", "dog_age"),
+      select(
+        "dog_age_unit",
+        "Age unit",
+        false,
+        @age_unit_options,
+        "age_and_health",
+        "Age and health",
+        "dog_age"
+      ),
+      select("dog_sex", "Sex", true, @sex_options, "age_and_health", "Age and health"),
+      select(
+        "spay_neuter_status",
+        "Spay or neuter status",
+        true,
+        @spay_neuter_options,
+        "age_and_health",
+        "Age and health"
+      ),
+      select(
+        "origin",
+        "Origin",
+        true,
+        @origin_options,
+        "how_they_came_home",
+        "How they came home"
+      ),
+      short_text(
+        "acquisition_age",
+        "Age when acquired",
+        true,
+        "how_they_came_home",
+        "How they came home",
+        "acquisition_age"
+      ),
+      select(
+        "acquisition_age_unit",
+        "Acquisition age unit",
+        false,
+        @age_unit_options,
+        "how_they_came_home",
+        "How they came home",
+        "acquisition_age"
+      ),
+      short_text(
+        "main_concern",
+        "Main concern",
+        true,
+        "what_you_need",
+        "What you want help with"
+      ),
+      short_text(
+        "brief_context",
+        "Brief context",
+        true,
+        "what_you_need",
+        "What you want help with"
+      ),
+      short_text(
+        "desired_result",
+        "Desired result",
+        true,
+        "what_you_need",
+        "What you want help with"
+      )
     ]
   end
 
-  defp short_text(id, label, required) do
-    %{"id" => id, "type" => "short_text", "label" => label, "required" => required}
+  defp short_text(id, label, required, group \\ nil, group_label \\ nil, row \\ nil) do
+    field("short_text", id, label, required, group, group_label, row)
   end
 
-  defp select(id, label, required, options) do
+  defp select(id, label, required, options, group, group_label, row \\ nil) do
+    field("single_select", id, label, required, group, group_label, row)
+    |> Map.put("options", options)
+  end
+
+  defp field(type, id, label, required, group, group_label, row) do
     %{
       "id" => id,
-      "type" => "single_select",
+      "type" => type,
       "label" => label,
-      "required" => required,
-      "options" => options
+      "required" => required
     }
+    |> maybe_put("group", group)
+    |> maybe_put("group_label", group_label)
+    |> maybe_put("row", row)
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end
