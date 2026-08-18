@@ -356,6 +356,6 @@ credo --strict (upstream), optional image rollback, and live `$49` /
 - Anna's scheduler user ID is not approved, so production provisioning
   remains blocked.
 - Google Calendar is connected for owner 1 with encrypted tokens. Google
-  login stays off. Live Stripe Connect onboarding and SMTP/Resend are not
-  complete.
+  login stays off. Live Stripe Connect onboarding stays off. Booking mail
+  uses Resend SMTP from `inquiries@mypawtrainer.com`.
 - Measured host thresholds and a live `--apply` restore remain outstanding.
