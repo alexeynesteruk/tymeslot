@@ -329,6 +329,10 @@ credo --strict (upstream), optional image rollback, and live `$49` /
 
 ## Production blockers
 
+- Complete and charge confirmations now use the shared accessible modal shell.
+  The previous bare dialogs rendered at the bottom of the dashboard rather than
+  as visible overlays. Focused component and dashboard tests pass; host deploy
+  verification remains pending.
 - Task 16 is not accepted. Credo `--strict` remains red. Live `$140`
   card-save, Google Calendar write, Stripe test-mode manual charge,
   full refund, and owner recovery-session create succeeded on image

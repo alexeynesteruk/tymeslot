@@ -3,23 +3,44 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.ChargeModal do
 
   use TymeslotWeb, :html
 
+  alias Phoenix.LiveView.JS
+
   attr :payment, :any, default: nil
   attr :show, :boolean, default: false
   attr :target, :any, default: nil
 
   def charge_modal(assigns) do
     ~H"""
-    <div :if={@show && @payment} id="charge-payment-modal" role="dialog" aria-modal="true">
-      <h2>Charge saved card?</h2>
-      <p>{@payment.service_snapshot["service_name"]}</p>
-      <p>{@payment.attendee_name}</p>
-      <p>{format_appointment(@payment.meeting)}</p>
-      <p>{format_amount(@payment.service_snapshot)}</p>
-      <button type="button" phx-click="submit_charge" phx-value-id={@payment.id} phx-target={@target}>
-        Confirm charge
-      </button>
-      <button type="button" phx-click="close_charge_modal" phx-target={@target}>Cancel</button>
-    </div>
+    <.modal
+      :if={@show && @payment}
+      id="charge-payment-modal"
+      show={true}
+      on_cancel={JS.push("close_charge_modal", target: @target)}
+      size={:small}
+    >
+      <:header>Charge saved card?</:header>
+      <div class="space-y-2 text-tymeslot-700">
+        <p class="font-semibold">{@payment.service_snapshot["service_name"]}</p>
+        <p>{@payment.attendee_name}</p>
+        <p>{format_appointment(@payment.meeting)}</p>
+        <p class="font-semibold">{format_amount(@payment.service_snapshot)}</p>
+      </div>
+      <:footer>
+        <div class="flex justify-end gap-3">
+          <.action_button variant={:secondary} phx-click="close_charge_modal" phx-target={@target}>
+            Cancel
+          </.action_button>
+          <.action_button
+            variant={:primary}
+            phx-click="submit_charge"
+            phx-value-id={@payment.id}
+            phx-target={@target}
+          >
+            Confirm charge
+          </.action_button>
+        </div>
+      </:footer>
+    </.modal>
     """
   end
 
