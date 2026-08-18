@@ -244,7 +244,11 @@ defmodule Tymeslot.Bookings.Validation do
     current_time = Map.get(merged, :current_time)
     min_notice_hours = Map.get(merged, :min_advance_hours)
     max_booking_days = Map.get(merged, :max_advance_booking_days)
-    min_notice_minutes = min_notice_hours * 60
+    # Form completion tolerance: grant up to 60 minutes grace so a booker who
+    # selected a valid slot is not rejected if they spend time completing the intake
+    # questions or entering payment details.
+    grace_minutes = Map.get(merged, :min_advance_grace_minutes, 60)
+    min_notice_minutes = max(0, min_notice_hours * 60 - grace_minutes)
 
     past_error = Map.get(merged, :past_error_message, "Booking time must be in the future")
 

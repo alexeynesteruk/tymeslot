@@ -317,4 +317,35 @@ defmodule Tymeslot.Bookings.ValidationTest do
                Validation.parse_meeting_times("2025-06-15", "10:00", 30, "Not/AZone")
     end
   end
+
+  describe "validate_booking_time/3 minimum notice grace period" do
+    test "accepts booking slightly inside 24-hour notice due to form completion grace period" do
+      now = ~U[2026-08-18 13:30:00Z]
+      # 23 hours and 30 minutes in advance (selected when > 24h, submitted 30 min later)
+      slot_time = ~U[2026-08-19 13:00:00Z]
+
+      config = %{
+        current_time: now,
+        min_advance_hours: 24,
+        max_advance_booking_days: 90
+      }
+
+      assert :ok = Validation.validate_booking_time(slot_time, "Etc/UTC", config)
+    end
+
+    test "rejects booking that is far inside minimum notice even with grace period" do
+      now = ~U[2026-08-18 13:30:00Z]
+      # Only 4 hours in advance
+      slot_time = ~U[2026-08-18 17:30:00Z]
+
+      config = %{
+        current_time: now,
+        min_advance_hours: 24,
+        max_advance_booking_days: 90
+      }
+
+      assert {:error, message} = Validation.validate_booking_time(slot_time, "Etc/UTC", config)
+      assert message =~ "Booking requires at least 24 hours in advance"
+    end
+  end
 end
