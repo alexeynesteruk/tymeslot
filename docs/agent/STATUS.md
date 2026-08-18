@@ -277,11 +277,17 @@ treat the current host image as a customer launch.
   Dialyzer are red. Live Stripe/Google test-mode has not run.
 - Price and minimum booking projection events have transactional outbox and
   signed delivery locally. CRM delivery remains disabled.
-- Anna has not supplied hours, Eastern timezone confirmation, notice, window,
-  buffer, rescheduling deadline, ZIP list, saved-card authorization,
-  cancellation/refund policy, safety wording, monthly/assistant-dog operating
-  details, replacement FAQ, photography, Instagram decision, or admin
-  recovery procedure.
+- Anna supplied bookable hours 09:00-20:00 America/New_York, applied to all
+  seven days on owner `mypawtrainer@gmail.com`, and approved ZIPs `32095`,
+  `32259`, and `32258`. Forty-five previously active ZIPs were deactivated so
+  only those three remain. Days off, notice, window, buffer, and rescheduling
+  deadline are still unset.
+- Stripe sandbox test keys and test-mode webhook endpoints are on VM 2.
+  `MEETING_PAYMENTS_ENABLED` remains `false`. Live charges stay off.
+- Anna has not supplied notice, window, buffer, rescheduling deadline,
+  saved-card authorization, cancellation/refund policy, safety wording,
+  monthly/assistant-dog operating details, replacement FAQ, photography,
+  Instagram decision, or admin recovery procedure.
 - Anna's scheduler user ID is not approved, so production provisioning
   remains blocked.
 - Live Google Calendar connect, Stripe Connect, SMTP/Resend, and webhooks
