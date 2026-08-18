@@ -393,3 +393,33 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Changing the currency will reset every paid event type to free - existing prices are recorded in the previous currency and would otherwise be charged at the new one."
 msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/payments_settings/payments_table.ex
+#, elixir-autogen, elixir-format
+msgid "Card saved"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/payments_settings_component.ex
+#, elixir-autogen, elixir-format
+msgid "Charge could not be requested."
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/payments_settings/payments_table.ex
+#, elixir-autogen, elixir-format
+msgid "Charge failed"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/payments_settings/payments_table.ex
+#, elixir-autogen, elixir-format
+msgid "Charge processing"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/payments_settings_component.ex
+#, elixir-autogen, elixir-format
+msgid "Charge requested."
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/payments_settings/payments_table.ex
+#, elixir-autogen, elixir-format
+msgid "Customer action required"
+msgstr ""

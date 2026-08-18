@@ -237,3 +237,64 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Connect a video provider to finish setup"
 msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "Active"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "Add ZIP"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "Deactivate"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "In-home times appear only after a visitor enters an active ZIP from this list. Changes apply to future bookings and do not cancel existing meetings."
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "Inactive"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "No ZIPs yet. In-home booking stays closed."
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "Reactivate"
+msgstr ""
+
+#: lib/tymeslot_web/components/dashboard_sidebar.ex
+#: lib/tymeslot_web/helpers/page_titles.ex
+#, elixir-autogen, elixir-format
+msgid "Service Area"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "Service area"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "Status"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "ZIP"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/mypawtrainer/zip_allowlist_component.ex
+#, elixir-autogen, elixir-format
+msgid "ZIP code"
+msgstr ""

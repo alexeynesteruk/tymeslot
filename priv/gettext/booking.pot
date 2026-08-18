@@ -1277,3 +1277,54 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "The host is no longer accepting bookings for this period. Please pick a different day."
 msgstr ""
+
+#: lib/tymeslot_web/themes/quill/scheduling/components/schedule_component.ex
+#: lib/tymeslot_web/themes/rhythm/scheduling/components/schedule_component.ex
+#, elixir-autogen, elixir-format
+msgid "Check ZIP"
+msgstr ""
+
+#: lib/tymeslot_web/themes/quill/scheduling/components/schedule_component.ex
+#: lib/tymeslot_web/themes/rhythm/scheduling/components/schedule_component.ex
+#, elixir-autogen, elixir-format
+msgid "Enter your ZIP code to see in-home times."
+msgstr ""
+
+#: lib/tymeslot_web/live/scheduling/handlers/booking_error_message.ex
+#, elixir-autogen, elixir-format
+msgid "In-home visits are only available in eligible ZIP codes. Please check your ZIP or choose an online service."
+msgstr ""
+
+#: lib/tymeslot_web/themes/quill/meeting/cancel.ex
+#: lib/tymeslot_web/themes/rhythm/meeting/cancel.ex
+#, elixir-autogen, elixir-format
+msgid "Request Cancellation"
+msgstr ""
+
+#: lib/tymeslot_web/themes/quill/scheduling/components/schedule_component.ex
+#: lib/tymeslot_web/themes/rhythm/scheduling/components/schedule_component.ex
+#, elixir-autogen, elixir-format
+msgid "This ZIP is outside the current in-home service area."
+msgstr ""
+
+#: lib/tymeslot_web/live/scheduling/handlers/booking_error_message.ex
+#, elixir-autogen, elixir-format
+msgid "This service cannot be booked online. Please send a request instead."
+msgstr ""
+
+#: lib/tymeslot_web/live/scheduling/handlers/booking_error_message.ex
+#, elixir-autogen, elixir-format
+msgid "This service length is no longer valid. Please refresh and try again."
+msgstr ""
+
+#: lib/tymeslot_web/themes/quill/meeting/cancel.ex
+#: lib/tymeslot_web/themes/rhythm/meeting/cancel.ex
+#, elixir-autogen, elixir-format
+msgid "To request cancellation, email mypawtrainer@gmail.com."
+msgstr ""
+
+#: lib/tymeslot_web/themes/quill/scheduling/components/schedule_component.ex
+#: lib/tymeslot_web/themes/rhythm/scheduling/components/schedule_component.ex
+#, elixir-autogen, elixir-format
+msgid "ZIP code"
+msgstr ""
