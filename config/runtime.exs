@@ -311,6 +311,8 @@ if config_env() == :prod do
          {"0 2 * * *", Tymeslot.Workers.RenewWebhookChannelsWorker},
          # Run every 15 min; CalDAV tier-aware filtering decides which integrations sync
          {"*/15 * * * *", Tymeslot.Workers.FallbackSyncSweepWorker},
+         # Deliver committed direct-service prices without blocking price changes
+         {"* * * * *", Tymeslot.MyPawTrainer.Workers.DeliverPriceProjection},
          # Run daily at 04:00 UTC for cross-domain data retention pruning
          {"0 4 * * *", Tymeslot.Workers.DataRetentionWorker, args: %{retention_days: 60}},
          # Run every 6 hours to detect silent/dead webhook channels
@@ -593,11 +595,13 @@ config :tymeslot,
 config :tymeslot, registration_enabled: System.get_env("REGISTRATION_ENABLED", "true") == "true"
 config :tymeslot, password_auth_enabled: System.get_env("PASSWORD_AUTH_ENABLED", "true") == "true"
 
-# Projection delivery is implemented separately. Keep it disabled until its
-# authenticated VM 1 destination and release gate are configured.
 config :tymeslot,
        :price_projection_delivery_enabled,
        System.get_env("PRICE_PROJECTION_DELIVERY_ENABLED", "false") == "true"
+
+config :tymeslot,
+  price_projection_url: System.get_env("PRICE_PROJECTION_URL"),
+  price_projection_secret: System.get_env("PRICE_PROJECTION_SECRET")
 
 # Social Authentication Configuration
 # These environment variables control whether social login is enabled

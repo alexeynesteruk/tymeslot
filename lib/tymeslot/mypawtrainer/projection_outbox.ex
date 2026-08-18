@@ -41,11 +41,29 @@ defmodule Tymeslot.MyPawTrainer.ProjectionOutbox do
 
   @spec claim_due(pos_integer(), DateTime.t()) :: [ProjectionOutboxSchema.t()]
   def claim_due(limit, now) when is_integer(limit) and limit > 0 do
+    do_claim_due(limit, now, nil)
+  end
+
+  @spec claim_due(pos_integer(), DateTime.t(), String.t()) :: [ProjectionOutboxSchema.t()]
+  def claim_due(limit, now, event_type)
+      when is_integer(limit) and limit > 0 and is_binary(event_type) do
+    do_claim_due(limit, now, event_type)
+  end
+
+  defp do_claim_due(limit, now, event_type) do
     {:ok, events} =
       Repo.transaction(fn ->
-        due =
+        query =
           ProjectionOutboxSchema
           |> where([event], event.state == "pending" and event.next_attempt_at <= ^now)
+
+        query =
+          if event_type,
+            do: where(query, [event], event.event_type == ^event_type),
+            else: query
+
+        due =
+          query
           |> order_by([event], asc: event.next_attempt_at, asc: event.inserted_at)
           |> limit(^limit)
           |> lock("FOR UPDATE SKIP LOCKED")
@@ -63,6 +81,23 @@ defmodule Tymeslot.MyPawTrainer.ProjectionOutbox do
       end)
 
     events
+  end
+
+  @spec reclaim_stale(DateTime.t(), String.t() | nil) :: non_neg_integer()
+  def reclaim_stale(stale_before, event_type \\ nil) do
+    query =
+      ProjectionOutboxSchema
+      |> where([event], event.state == "delivering" and event.updated_at <= ^stale_before)
+
+    query =
+      if event_type,
+        do: where(query, [event], event.event_type == ^event_type),
+        else: query
+
+    {count, _rows} =
+      Repo.update_all(query, set: [state: "pending", error_code: "delivery_interrupted"])
+
+    count
   end
 
   @spec mark_delivered(Ecto.UUID.t(), DateTime.t()) ::

@@ -103,6 +103,18 @@ both remotes were fetched instead of creating a duplicate clone.
   their event types are inactive. No HTTP delivery worker was added. Production
   booking stays off, event types remain inactive, and no ZIPs are seeded. Next
   implementation task is Task 11 signed VM 1 price-projection delivery.
+- Task 11 signed VM 1 price-projection delivery: implemented locally on
+  2026-08-17. The dedicated worker delivers only
+  `service.price_published.v1` with the exact bounded JSON contract, TLS,
+  timestamp, nonce, event ID, idempotency key, and HMAC-SHA256 body signature.
+  It acknowledges applied, duplicate, and older-version responses; retries
+  transient and malformed outcomes with bounded exponential backoff and
+  jitter; dead-letters authentication and exhausted retries; and reclaims
+  interrupted deliveries for idempotent reconciliation. Delivery defaults off,
+  no production secret is present, and price changes remain committed through
+  every delivery outcome. Production booking stays off, event types remain
+  inactive, and no ZIPs are seeded. Next implementation task is Task 12 minimum
+  EspoCRM projection and delivery.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 
@@ -144,16 +156,17 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 10 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+Task 11 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
 SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
 exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 11 signed VM 1 price-projection delivery. Website booking URLs stay off.
+Task 12 minimum EspoCRM projection and delivery. Website booking URLs stay off.
 
 ## Production blockers
 
-- Price events have a transactional outbox, but signed VM 1 delivery and CRM
-  projection producers and delivery are not implemented.
+- Price events have a transactional outbox and signed VM 1 delivery locally,
+  but production acceptance and CRM projection producers and delivery are not
+  implemented.
 - Concurrency, webhook, security, and browser gates have not run.
 - ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
 - Anna has not supplied all production booking and authorization values.
