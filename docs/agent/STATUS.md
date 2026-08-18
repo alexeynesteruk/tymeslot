@@ -192,8 +192,9 @@ Do not edit the same task in both locations.
   `SHA256:qxxvyJYrAJvDHh3nh3VBTkwgINPC+k+A85bVL8ILDoc`
 
 The VM was updated and rebooted. On 2026-08-18 a production-disabled host
-image `tymeslot:702c589f` replaced `tymeslot:d85a30f3`. The previous image
-remains on the host for application rollback. `rpcbind` is masked,
+image `tymeslot:1eb79b11` replaced `tymeslot:702c589f`. The previous images
+`tymeslot:702c589f` and `tymeslot:d85a30f3` remain on the host for
+application rollback. `rpcbind` is masked,
 UFW/fail2ban/Docker/Nginx are active, and `GET /healthcheck` on
 `127.0.0.1:4000` returns HTTP 200 with database and Oban ok. Host Nginx
 publishes `book.mypawtrainer.com` over HTTPS. The process runs as `app`.
@@ -214,7 +215,7 @@ with explicit Homebrew paths. Formatting and `git diff --check` pass.
 
 Re-run on 2026-08-18 from
 `/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7` at `5348c106`.
-Host image remains `tymeslot:702c589f`.
+Host image is now `tymeslot:1eb79b11`.
 
 | Command | Result |
 | --- | --- |
@@ -255,28 +256,30 @@ created for 2026-08-26 through 2026-09-01. Event type deactivated;
 `EventRoutes.resolve/2` is `:unavailable`. Website booking URLs stayed
 unset.
 
-Gaps found on the live path, now fixed locally on `feat/mpt-task7`
-(not in image `702c589f`):
+Gaps found on the live path, now deployed on `tymeslot:1eb79b11`:
 
 - Checkout setup now creates a Connect Customer and binds `customer`
   on the session so the saved card can be charged later.
 - Webhook confirmation heals a missing customer, broadcasts
   `:card_saved`, and both theme return pages plus the embed iframe
   treat `card_saved` as confirmed.
-- `ManualCharges.reserve/2` heals a missing customer on an already
-  saved card before reserving, so the existing live probe can be
-  charged after this image is deployed.
+- `ManualCharges.reserve/2` healed the existing live probe, created
+  Connect customer `cus_V5zgyinNZ0TZF7`, and charged `$140` in Stripe
+  test mode. Payment `0d85db80-9625-4008-a129-f84043c0aa48` is `paid`
+  with PaymentIntent `pi_3U5nhEI86BQ5JZdC1wYQtcoc` and charge
+  `ch_3U5nhEI86BQ5JZdC1Qog49UQ` (`livemode=false`, captured).
 
 | Service | Setup charge | Confirmation | Calendar | Manual charge | Recovery | Refund |
 | --- | --- | --- | --- | --- | --- | --- |
 | discovery-call $49 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
-| online-consultation $140 | live Stripe test Checkout, $0 | card_saved; return-page fix is local only | Google event written | blocked on host image; heal is local | not on host | not on host |
+| online-consultation $140 | live Stripe test Checkout, $0 | card_saved then owner-completed | Google event written | live Stripe test charge `$140` | not on host | not on host |
 | in-home-consultation $190 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
 
 ### Backup, restore, rollback
 
 - Pre-image backup: `/var/backups/tymeslot/tymeslot.20260818T120120Z.dump.age`
 - Post-image backup: `/var/backups/tymeslot/tymeslot.20260818T122656Z.dump.age`
+- Pre-`1eb79b11` backup: `/var/backups/tymeslot/tymeslot.20260818T135858Z.dump.age`
 - Disposable restore rehearsal of the pre-image backup: `tables=39 users=1`
   while live Tymeslot stayed healthy
 - Application rollback to `tymeslot:d85a30f3` was **not** executed. Newer
@@ -286,25 +289,24 @@ Gaps found on the live path, now fixed locally on `feat/mpt-task7`
 
 ### Image
 
-- Tag: `tymeslot:702c589f`
-- Digest: `sha256:c91381943134ce865c2396d0f992c287936b9eca95ef35d9b93330fd7c1b5657`
-- Arch: `linux/arm64`
+- Tag: `tymeslot:1eb79b11`
+- Digest: `sha256:c408826b6064f52a1a5b25218717a64af611d3c465aa5ce3df679492e20c5a5e`
+- Previous rollback images still on host: `tymeslot:702c589f`, `tymeslot:d85a30f3`
+- Arch: `linux/arm64`, runs as `app`
 - Health: HTTP 200, `oban=ok`, `database=ok`
 
 ## Next safe action
 
 Do not activate production booking. Website booking URLs stay off. Remaining
-Task 16 gaps are credo --strict (upstream), deploying the customer/return-page
-fix, re-running private charge/recovery/refund against the connected calendar,
-and image rollback. Do not start Task 17. Do not treat the current host image
-as a customer launch.
+Task 16 gaps are credo --strict (upstream), private recovery/refund against
+the connected calendar, and image rollback. Do not start Task 17. Do not
+treat the current host image as a customer launch.
 
 ## Production blockers
 
 - Task 16 is not accepted. Credo `--strict` remains red. Live `$140`
-  card-save and Google Calendar write succeeded. Manual charge remains
-  blocked on image `702c589f`; the customer-create and charge-heal fixes
-  are local only. Recovery and refund have not run.
+  card-save, Google Calendar write, and Stripe test-mode manual charge
+  succeeded on image `1eb79b11`. Recovery and refund have not run.
 - Price and minimum booking projection events have transactional outbox and
   signed delivery locally. CRM delivery remains disabled.
 - Anna supplied bookable hours 09:00-20:00 America/New_York, applied to all
@@ -319,8 +321,8 @@ as a customer launch.
   30-minute buffer, 24-hour reschedule cutoff. All seven days remain
   09:00-20:00 America/New_York. The reschedule cutoff is in the running
   node via `Application.put_env/3` and in host env as
-  `MPT_RESCHEDULE_DEADLINE_HOURS=24`; the runtime reader is committed but
-  not in image `702c589f` yet.
+  `MPT_RESCHEDULE_DEADLINE_HOURS=24`. Image `1eb79b11` includes the
+  runtime reader.
 - Anna has not supplied notice, window, buffer, rescheduling deadline,
   saved-card authorization, cancellation/refund policy, safety wording,
   monthly/assistant-dog operating details, replacement FAQ, photography,

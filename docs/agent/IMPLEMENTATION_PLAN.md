@@ -15,11 +15,10 @@ Use TDD and signed commits. The detailed approved plan is
 5. Add private rescheduling, included follow-up, signed price projections, and
    minimum asynchronous CRM projection. Done locally; delivery stays disabled.
 6. Add operations, recovery, and test-mode acceptance before activation.
-   Started. Production-disabled image `tymeslot:702c589f` is on VM 2. Task 16
-   is not accepted: credo --strict remains red. Live `$140` card-save and
-   Google Calendar write succeeded. Customer-create, return-page, and
-   charge-heal fixes are local on `feat/mpt-task7` and not deployed. Do not
-   start Task 17.
+   Started. Production-disabled image `tymeslot:1eb79b11` is on VM 2. Task 16
+   is not accepted: credo --strict remains red. Live `$140` card-save, Google
+   Calendar write, and Stripe test-mode manual charge succeeded. Recovery
+   and refund have not run. Do not start Task 17.
 
 ## Current Task 2 contract
 
