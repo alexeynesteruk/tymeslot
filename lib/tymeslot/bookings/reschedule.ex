@@ -15,6 +15,7 @@ defmodule Tymeslot.Bookings.Reschedule do
   alias Tymeslot.MyPawTrainer.CalendarAvailability
   alias Tymeslot.MyPawTrainer.BookingGuard
   alias Tymeslot.MyPawTrainer.ServiceCatalog
+  alias Tymeslot.MyPawTrainer.CrmProjection
   alias Tymeslot.Notifications.Events
   alias Tymeslot.Profiles.ProfileQueries
   alias Tymeslot.Repo
@@ -121,7 +122,8 @@ defmodule Tymeslot.Bookings.Reschedule do
 
     case Repo.transaction(fn ->
            with {:ok, updated} <- update_meeting(meeting, attrs),
-                {:ok, _result} <- schedule_calendar_job(updated) do
+                {:ok, _result} <- schedule_calendar_job(updated),
+                :ok <- CrmProjection.append_transition(updated, "rescheduled") do
              updated
            else
              {:error, reason} ->
@@ -151,7 +153,8 @@ defmodule Tymeslot.Bookings.Reschedule do
       with {:ok, updated} <- update_meeting(meeting, attrs),
            {:ok, _result} <- schedule_calendar_job(updated),
            {:ok, replacement_raw, _replacement} <-
-             ManagementTokens.consume_and_rotate(raw_token, updated) do
+             ManagementTokens.consume_and_rotate(raw_token, updated),
+           :ok <- CrmProjection.append_transition(updated, "rescheduled") do
         {updated, replacement_raw}
       else
         {:error, reason} -> Repo.rollback(reason)

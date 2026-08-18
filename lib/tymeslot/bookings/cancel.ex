@@ -14,6 +14,8 @@ defmodule Tymeslot.Bookings.Cancel do
   alias Tymeslot.Meetings.MeetingSchema, as: Meeting
   alias Tymeslot.Meetings.MeetingState
   alias Tymeslot.Notifications.Events
+  alias Tymeslot.MyPawTrainer.CrmProjection
+  alias Tymeslot.Repo
   alias Tymeslot.Workers.VideoSyncWorker
 
   @doc """
@@ -145,7 +147,14 @@ defmodule Tymeslot.Bookings.Cancel do
       cancelled_at: DateTime.truncate(Clock.utc_now(), :second)
     }
 
-    case MeetingQueries.update_meeting(meeting, attrs) do
+    case Repo.transaction(fn ->
+           with {:ok, updated} <- MeetingQueries.update_meeting(meeting, attrs),
+                :ok <- CrmProjection.append_transition(updated, "cancelled") do
+             updated
+           else
+             {:error, reason} -> Repo.rollback(reason)
+           end
+         end) do
       {:ok, updated_meeting} ->
         Logger.info("Meeting status updated to cancelled",
           meeting_id: meeting.id

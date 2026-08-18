@@ -6,6 +6,7 @@ defmodule Tymeslot.Meetings.Completion do
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MyPawTrainer.ServiceCatalog
   alias Tymeslot.MyPawTrainer.FollowUps
+  alias Tymeslot.MyPawTrainer.CrmProjection
   alias Tymeslot.Repo
 
   @spec complete(Ecto.UUID.t(), pos_integer()) ::
@@ -19,7 +20,8 @@ defmodule Tymeslot.Meetings.Completion do
            :ok <- require_confirmed(meeting),
            {:ok, completed} <- MeetingQueries.update_meeting(meeting, %{status: "completed"}),
            :ok <- audit_completion(completed, actor_user_id),
-           {:ok, _entitlement} <- FollowUps.create_entitlement(completed) do
+           {:ok, _entitlement} <- FollowUps.create_entitlement(completed),
+           :ok <- CrmProjection.append_transition(completed, "completed") do
         completed
       else
         {:error, reason} -> Repo.rollback(reason)

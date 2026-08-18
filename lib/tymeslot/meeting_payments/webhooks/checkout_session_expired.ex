@@ -21,6 +21,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
   alias Tymeslot.MeetingPayments.Telemetry
   alias Tymeslot.MeetingPayments.BookingPaymentAudits
   alias Tymeslot.Meetings.MeetingQueries
+  alias Tymeslot.MyPawTrainer.CrmProjection
   alias Tymeslot.Repo
 
   @event_type "checkout.session.expired"
@@ -167,7 +168,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired do
     case MeetingQueries.get_meeting(meeting_id) do
       {:ok, %{status: status} = meeting} when status in ["awaiting_payment", "awaiting_card"] ->
         case MeetingQueries.update_meeting(meeting, %{status: "expired"}) do
-          {:ok, _meeting} -> :ok
+          {:ok, expired} -> CrmProjection.append_transition(expired, "expired")
           {:error, _changeset} = err -> err
         end
 

@@ -9,6 +9,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CardSetupConfirmation do
   alias Tymeslot.MeetingPayments.PostConfirmation
   alias Tymeslot.MeetingPayments.Telemetry
   alias Tymeslot.Meetings.MeetingQueries
+  alias Tymeslot.MyPawTrainer.CrmProjection
   alias Tymeslot.Repo
 
   @spec apply(BookingPaymentSchema.t(), map()) :: :ok | {:error, term()}
@@ -179,7 +180,10 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CardSetupConfirmation do
         {:ok, meeting}
 
       {:ok, %{status: status} = meeting} when status in ["awaiting_card", "expired"] ->
-        MeetingQueries.update_meeting(meeting, %{status: "confirmed"})
+        with {:ok, confirmed} <- MeetingQueries.update_meeting(meeting, %{status: "confirmed"}),
+             :ok <- CrmProjection.append_transition(confirmed, "confirmed") do
+          {:ok, confirmed}
+        end
 
       {:ok, _other} ->
         :already_confirmed

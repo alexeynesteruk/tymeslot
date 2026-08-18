@@ -9,6 +9,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.SetupIntentSetupFailed do
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MeetingPayments.Telemetry
   alias Tymeslot.Meetings.MeetingQueries
+  alias Tymeslot.MyPawTrainer.CrmProjection
   alias Tymeslot.Repo
 
   @event_type "setup_intent.setup_failed"
@@ -109,7 +110,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.SetupIntentSetupFailed do
     case MeetingQueries.get_meeting(meeting_id) do
       {:ok, %{status: "awaiting_card"} = meeting} ->
         case MeetingQueries.update_meeting(meeting, %{status: "expired"}) do
-          {:ok, _meeting} -> :ok
+          {:ok, expired} -> CrmProjection.append_transition(expired, "expired")
           {:error, reason} -> {:error, reason}
         end
 

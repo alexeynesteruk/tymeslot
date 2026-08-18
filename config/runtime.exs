@@ -603,6 +603,16 @@ config :tymeslot,
   price_projection_url: System.get_env("PRICE_PROJECTION_URL"),
   price_projection_secret: System.get_env("PRICE_PROJECTION_SECRET")
 
+config :tymeslot,
+       :crm_projection_delivery_enabled,
+       System.get_env("CRM_PROJECTION_DELIVERY_ENABLED", "false") == "true"
+
+config :tymeslot,
+  crm_projection_url: System.get_env("CRM_PROJECTION_URL"),
+  crm_projection_secret: System.get_env("CRM_PROJECTION_SECRET"),
+  crm_projection_operator_base_url:
+    System.get_env("CRM_PROJECTION_OPERATOR_BASE_URL", "https://book.mypawtrainer.com")
+
 # Social Authentication Configuration
 # These environment variables control whether social login is enabled
 #

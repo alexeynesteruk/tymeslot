@@ -113,8 +113,17 @@ both remotes were fetched instead of creating a duplicate clone.
   interrupted deliveries for idempotent reconciliation. Delivery defaults off,
   no production secret is present, and price changes remain committed through
   every delivery outcome. Production booking stays off, event types remain
-  inactive, and no ZIPs are seeded. Next implementation task is Task 12 minimum
-  EspoCRM projection and delivery.
+   inactive, and no ZIPs are seeded. Next implementation task is Task 12 minimum
+   EspoCRM projection and delivery.
+- Task 12 minimum EspoCRM projection and idempotent delivery: implemented
+  locally on 2026-08-17. Only booking lifecycle projections use the shared
+  transactional outbox. The payload is restricted to the approved booking
+  allowlist, signed with a separate CRM credential, retried asynchronously,
+  reconciled by immutable booking ID and aggregate version, and ignored by the
+  VM 1 price worker. Client, dog, payment, and follow-up producers remain
+  disabled. CRM delivery defaults off. Production booking stays off, event
+  types remain inactive, and no ZIPs are seeded. Next implementation task is
+  Task 13 privacy, retention, authorization, and observability enforcement.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 
@@ -156,17 +165,19 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 11 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+Task 12 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
 SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
 exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 12 minimum EspoCRM projection and delivery. Website booking URLs stay off.
+Task 13 privacy, retention, authorization, and observability. Website booking
+URLs stay off. CRM projection delivery and client and dog producers stay
+disabled.
 
 ## Production blockers
 
-- Price events have a transactional outbox and signed VM 1 delivery locally,
-  but production acceptance and CRM projection producers and delivery are not
-  implemented.
+- Price and minimum booking projection events have transactional outbox and
+  signed delivery locally, but production acceptance, retention, and
+  observability are not complete. CRM delivery remains disabled.
 - Concurrency, webhook, security, and browser gates have not run.
 - ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
 - Anna has not supplied all production booking and authorization values.

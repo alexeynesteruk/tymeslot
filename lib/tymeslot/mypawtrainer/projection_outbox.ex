@@ -10,6 +10,10 @@ defmodule Tymeslot.MyPawTrainer.ProjectionOutbox do
   @price_payload_keys MapSet.new(
                         ~w(event_id service_id cents currency event_type_version aggregate_version occurred_at schema_version)
                       )
+  @booking_events ~w(booking.confirmed.v1 booking.rescheduled.v1 booking.completed.v1 booking.cancelled.v1 booking.expired.v1)
+  @booking_payload_keys MapSet.new(
+                          ~w(booking_id service_id service_name appointment_start appointment_end time_zone delivery_mode booking_state aggregate_version last_sync_time operator_deep_link)
+                        )
   @error_code_format ~r/\A[a-z0-9]+(?:_[a-z0-9]+)*\z/
 
   @spec append(map()) :: {:ok, ProjectionOutboxSchema.t()} | {:error, term()}
@@ -172,6 +176,22 @@ defmodule Tymeslot.MyPawTrainer.ProjectionOutbox do
       MapSet.new(Map.keys(payload)) != @price_payload_keys -> {:error, :invalid_payload}
       payload["event_id"] != event_id -> {:error, :invalid_payload}
       payload["schema_version"] != 1 -> {:error, :invalid_payload}
+      payload["aggregate_version"] != aggregate_version -> {:error, :invalid_payload}
+      true -> :ok
+    end
+  end
+
+  defp validate_payload(%{
+         event_type: event_type,
+         schema_version: 1,
+         aggregate_id: aggregate_id,
+         aggregate_version: aggregate_version,
+         payload: payload
+       })
+       when event_type in @booking_events and is_map(payload) do
+    cond do
+      MapSet.new(Map.keys(payload)) != @booking_payload_keys -> {:error, :invalid_payload}
+      payload["booking_id"] != aggregate_id -> {:error, :invalid_payload}
       payload["aggregate_version"] != aggregate_version -> {:error, :invalid_payload}
       true -> :ok
     end
