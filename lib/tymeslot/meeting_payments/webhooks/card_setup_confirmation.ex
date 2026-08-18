@@ -92,7 +92,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CardSetupConfirmation do
   end
 
   defp snapshot_mismatch?(payment, attrs) do
-    snapshot = payment.service_snapshot || %{}
+    snapshot = payment.service_snapshot
     service_id = attrs[:service_id]
     version = attrs[:service_version]
 

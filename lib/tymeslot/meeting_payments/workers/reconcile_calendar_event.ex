@@ -61,10 +61,6 @@ defmodule Tymeslot.MeetingPayments.Workers.ReconcileCalendarEvent do
       :ok ->
         :ok
 
-      {:discard, reason} ->
-        record_terminal(meeting, reason)
-        {:cancel, reason}
-
       {:error, reason} ->
         if attempt >= 5 do
           record_terminal(meeting, reason)

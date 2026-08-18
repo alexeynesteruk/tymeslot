@@ -41,7 +41,7 @@ defmodule Tymeslot.Meetings.CalendarEventSync do
   The `attempt` count is used only to decide whether a persistent failure should
   trigger an owner notification.
   """
-  @spec create(term(), pos_integer()) :: :ok | {:error, term()} | {:discard, term()}
+  @spec create(term(), pos_integer()) :: :ok | {:error, term()}
   def create(meeting_id, attempt) do
     case MeetingQueries.get_meeting(meeting_id) do
       {:ok, meeting} ->

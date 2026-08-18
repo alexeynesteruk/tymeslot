@@ -443,4 +443,67 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsTest do
       refute render(view) =~ "Refund payment"
     end
   end
+
+  describe "/dashboard/payments — deferred charge rate limit" do
+    setup do: enable_payments()
+
+    @tag :mpt_rate_limit
+    test "submit_charge stays on the page when the host is rate limited", %{conn: conn} do
+      user = create_onboarded_user()
+
+      insert(:connect_account,
+        user: user,
+        stripe_account_id: "acct_CHARGE",
+        charges_enabled: true,
+        payouts_enabled: true,
+        details_submitted: true
+      )
+
+      payment =
+        insert(:booking_payment, %{
+          host_user_id: user.id,
+          host_email: user.email,
+          stripe_account_id: "acct_CHARGE",
+          amount_cents: 14_000,
+          currency: "usd",
+          application_fee_cents: 0,
+          payment_timing: "deferred",
+          status: "card_saved",
+          service_snapshot: %{
+            "service_id" => "online-consultation",
+            "amount_cents" => 14_000,
+            "currency" => "usd",
+            "duration_minutes" => 90,
+            "delivery_mode" => "virtual",
+            "event_type_version" => 1
+          },
+          attendee_email: "owner@example.com",
+          attendee_name: "Owner",
+          meeting_type_name: "Online behavior consultation",
+          booking_theme_id: "1"
+        })
+
+      previous = Application.get_env(:tymeslot, :payment_rate_limits, [])
+
+      Application.put_env(:tymeslot, :payment_rate_limits,
+        max_attempts: 1,
+        window_ms: 60_000
+      )
+
+      on_exit(fn -> Application.put_env(:tymeslot, :payment_rate_limits, previous) end)
+
+      assert :ok = Tymeslot.Security.RateLimiter.check_payment_initiation_rate_limit(user.id)
+
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, "/dashboard/integrations?tab=payments")
+
+      html =
+        view
+        |> with_target("#payments-settings")
+        |> render_click("submit_charge", %{"id" => payment.id})
+
+      assert html =~ "Recent payments"
+      assert BookingPaymentQueries.get(payment.id).status == "card_saved"
+    end
+  end
 end

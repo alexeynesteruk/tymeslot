@@ -258,8 +258,15 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsComponent do
             {:noreply, socket}
         end
 
-      {:error, :rate_limited, message} ->
-        Flash.error(message)
+      {:error, :rate_limited} ->
+        Flash.error(
+          dgettext("dashboard_payments", "Too many payment requests. Please try again later.")
+        )
+
+        {:noreply, socket}
+
+      {:error, :invalid_user_id} ->
+        Flash.error(dgettext("dashboard_payments", "Charge could not be requested."))
         {:noreply, socket}
     end
   end
@@ -274,8 +281,14 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettingsComponent do
           {:error, _reason} -> {:noreply, socket}
         end
 
-      {:error, :rate_limited, message} ->
-        Flash.error(message)
+      {:error, :rate_limited} ->
+        Flash.error(
+          dgettext("dashboard_payments", "Too many payment requests. Please try again later.")
+        )
+
+        {:noreply, socket}
+
+      {:error, :invalid_user_id} ->
         {:noreply, socket}
     end
   end

@@ -90,7 +90,7 @@ defmodule Tymeslot.MeetingPayments.CardSetups do
 
   defp create_setup_session(meeting, context, booking_payment) do
     %{account: account, theme_slug: slug} = context
-    snapshot = booking_payment.service_snapshot || %{}
+    snapshot = booking_payment.service_snapshot
 
     StripeAdapter.create_setup_checkout_session(
       %{

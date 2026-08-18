@@ -179,12 +179,12 @@ defmodule Tymeslot.MyPawTrainer.Workers.DeliverCrmProjection do
     if event.attempt_count >= @max_attempts do
       ProjectionOutbox.dead_letter(event.id, "retry_exhausted_" <> code)
     else
-      delay = min(retry_after || backoff(event.attempt_count), @max_backoff)
+      delay = min(retry_after || retry_backoff(event.attempt_count), @max_backoff)
       ProjectionOutbox.reschedule_retry(event.id, code, DateTime.add(now, delay, :second))
     end
   end
 
-  defp backoff(attempt) do
+  defp retry_backoff(attempt) do
     base = min(Integer.pow(2, attempt), @max_backoff)
     jitter = Application.get_env(:tymeslot, :crm_projection_jitter, :random)
     if is_integer(jitter), do: min(base + max(jitter, 0), @max_backoff), else: base

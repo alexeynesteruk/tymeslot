@@ -423,3 +423,8 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Customer action required"
 msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/payments_settings_component.ex
+#, elixir-autogen, elixir-format
+msgid "Too many payment requests. Please try again later."
+msgstr ""
