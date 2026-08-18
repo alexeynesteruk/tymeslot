@@ -140,6 +140,19 @@ both remotes were fetched instead of creating a duplicate clone.
   file is involved. Production booking stays off, event types remain inactive,
   and no ZIPs are seeded. Next implementation task is Task 14 browser and
   website interface contracts.
+- Task 14 browser and website interface contracts: implemented locally on
+  2026-08-17. Contract and acceptance suites cover the three stable direct
+  routes, exact $49/$140/$190 prices and 30/90/90 durations, service-specific
+  intake without phone or meeting-mode, in-home-only ZIP handling, fresh Google
+  busy rejection, immutable booking snapshots, Stripe setup-mode Checkout,
+  immediate SetupIntent confirmation, and zero immediate charge. Approval-first
+  services cannot create meetings or payments, direct route availability is
+  independent, and included follow-up remains private, single-use, 30 minutes,
+  and payment-free. The focused scheduler suites passed 9 tests. The unchanged
+  website suites `tests/unit/booking.test.ts` and
+  `tests/components/booking-link.test.tsx` passed 13 tests with Vitest. Production
+  booking stays off, event types remain inactive, and no ZIPs are seeded. Next
+  implementation task is Task 15 image and platform interface contracts.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 
@@ -181,11 +194,11 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 13 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+Task 14 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
 SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
 exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 14 browser and website interface contracts. Website booking
+Task 15 image and platform interface contracts. Website booking
 URLs stay off. CRM projection delivery and client and dog producers stay
 disabled.
 
