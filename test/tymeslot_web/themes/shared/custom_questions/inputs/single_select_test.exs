@@ -55,4 +55,20 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.SingleSelectTest do
 
     assert html =~ ~s(<option value="">)
   end
+
+  test "wraps the select fallback in a form so a change commits the answer" do
+    d = %{
+      "id" => "origin",
+      "type" => "single_select",
+      "label" => "Origin",
+      "options" => options(7)
+    }
+
+    html = render_input(d)
+
+    assert html =~ ~s(id="cq-form-origin")
+    assert html =~ "<form"
+    assert html =~ ~s(phx-change="answer")
+    assert html =~ ~s(phx-submit="next")
+  end
 end

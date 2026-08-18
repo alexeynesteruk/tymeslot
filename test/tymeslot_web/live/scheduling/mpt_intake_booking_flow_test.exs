@@ -119,6 +119,48 @@ defmodule TymeslotWeb.Live.Scheduling.MptIntakeBookingFlowTest do
       assert html =~ "Age unit"
       assert html =~ "Choose weeks, months, or years"
     end
+
+    @tag :capture_log
+    test "origin select change commits and Next leaves the question",
+         %{conn: conn, profile: profile} do
+      view = navigate_to_booking_form(conn, profile, nil)
+
+      Enum.each(
+        [
+          {"dog_name", "Milo"},
+          {"breed_or_mix", "unknown"},
+          {"dog_age", "3"},
+          {"dog_age_unit", "years"},
+          {"dog_sex", "male"},
+          {"spay_neuter_status", "yes"}
+        ],
+        fn {id, value} ->
+          send(view.pid, {:step_event, :questions, :answer, {id, value}})
+        end
+      )
+
+      _drain = :sys.get_state(view.pid)
+
+      for _index <- 1..6 do
+        view |> element("button[phx-click='next'][phx-target]") |> render_click()
+      end
+
+      html = render(view)
+      assert html =~ "Question 7 of 12"
+      assert html =~ "Origin"
+      assert html =~ ~s(id="cq-form-origin")
+
+      view
+      |> form("#cq-form-origin", %{"value" => "rescue_shelter"})
+      |> render_change()
+
+      view |> element("button[phx-click='next'][phx-target]") |> render_click()
+
+      html = render(view)
+      refute html =~ "Please choose an option"
+      assert html =~ "Question 8 of 12"
+      assert html =~ "Age when acquired"
+    end
   end
 
   defp bookable_profile(username, service_id, duration_minutes, price_cents) do

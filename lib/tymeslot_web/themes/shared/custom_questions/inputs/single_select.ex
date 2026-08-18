@@ -42,16 +42,21 @@ defmodule TymeslotWeb.Themes.Shared.CustomQuestions.Inputs.SingleSelect do
 
   def render(assigns) do
     ~H"""
-    <.input
-      type="select"
-      name="value"
-      value={@value}
-      options={Enum.map(@definition["options"], &{&1["label"], &1["key"]})}
-      prompt={dgettext("booking", "Select…")}
-      aria-label={@definition["label"]}
+    <form
+      id={"cq-form-#{@definition["id"]}"}
       phx-change="answer"
+      phx-submit="next"
       phx-target={@myself}
-    />
+    >
+      <.input
+        type="select"
+        name="value"
+        value={@value}
+        options={Enum.map(@definition["options"], &{&1["label"], &1["key"]})}
+        prompt={dgettext("booking", "Select…")}
+        aria-label={@definition["label"]}
+      />
+    </form>
     """
   end
 end
