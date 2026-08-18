@@ -7,8 +7,8 @@ Updated: 2026-08-18
 - Local checkout: `/Users/anesteruk/Documents/tymeslot`
 - Fork remote: `git@github.com:alexeynesteruk/tymeslot.git`
 - Upstream remote: `git@github.com:Tymeslot/tymeslot.git`
-- Branch: `feat/mpt-task7` @ `1aaed043` (pushed)
-- `origin/main`: `eab8ea89` (Tasks 1-5 merged)
+- Branch: `main` @ `55cc0aa1` (pushed)
+- `origin/main`: `55cc0aa1`
 - Git SSH identity: `/Users/anesteruk/.ssh/mypawtrainer.com` for fetch;
   push to `alexeynesteruk/tymeslot` uses `/Users/anesteruk/.ssh/id_rsa`
 
@@ -332,11 +332,12 @@ credo --strict (upstream), optional image rollback, and live `$49` /
 - Complete and charge confirmations now use the shared accessible modal shell.
   The previous bare dialogs rendered at the bottom of the dashboard rather than
   as visible overlays. Focused component and dashboard tests pass. VM 2 runs
-  `tymeslot:46d17c36`; loopback and public health checks return HTTP 200.
+  `tymeslot:55cc0aa1`; loopback and public health checks return HTTP 200.
 - The dashboard labels a past confirmed meeting as `Past appointment`, reserving
   `Completed` for the actual completed state. It exposes Charge only for a
-  completed meeting with a saved card. Focused tests pass; host deploy
-  verification remains pending.
+  completed meeting with a saved card. The domain charge guard remains in place
+  as defense in depth. Focused suites pass (52 tests); the deployed scheduler
+  routes return HTTP 200.
 - Task 16 is not accepted. Credo `--strict` remains red. Live `$140`
   card-save, Google Calendar write, Stripe test-mode manual charge,
   full refund, and owner recovery-session create succeeded on image
