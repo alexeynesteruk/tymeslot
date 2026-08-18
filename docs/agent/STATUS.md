@@ -7,9 +7,10 @@ Updated: 2026-08-18
 - Local checkout: `/Users/anesteruk/Documents/tymeslot`
 - Fork remote: `git@github.com:alexeynesteruk/tymeslot.git`
 - Upstream remote: `git@github.com:Tymeslot/tymeslot.git`
-- Branch: `feat/mpt-task7`
+- Branch: `feat/mpt-task7` @ `1aaed043` (pushed)
 - `origin/main`: `eab8ea89` (Tasks 1-5 merged)
-- Git SSH identity: `/Users/anesteruk/.ssh/mypawtrainer.com`
+- Git SSH identity: `/Users/anesteruk/.ssh/mypawtrainer.com` for fetch;
+  push to `alexeynesteruk/tymeslot` uses `/Users/anesteruk/.ssh/id_rsa`
 
 The checkout already existed from the previous session. It was verified and
 both remotes were fetched instead of creating a duplicate clone.
@@ -191,10 +192,10 @@ Do not edit the same task in both locations.
 - Observed host fingerprint:
   `SHA256:qxxvyJYrAJvDHh3nh3VBTkwgINPC+k+A85bVL8ILDoc`
 
-The VM was updated and rebooted. On 2026-08-18 a production-disabled host
-image `tymeslot:1eb79b11` replaced `tymeslot:702c589f`. The previous images
-`tymeslot:702c589f` and `tymeslot:d85a30f3` remain on the host for
-application rollback. `rpcbind` is masked,
+The VM was updated and rebooted. On 2026-08-18 17:49 UTC host image
+`tymeslot:1aaed043` replaced `tymeslot:e3922a06` with four-screen
+consultation intake. Previous images `e3922a06`, `1eb79b11`, `702c589f`,
+and `d85a30f3` remain on the host for application rollback. `rpcbind` is masked,
 UFW/fail2ban/Docker/Nginx are active, and `GET /healthcheck` on
 `127.0.0.1:4000` returns HTTP 200 with database and Oban ok. Host Nginx
 publishes `book.mypawtrainer.com` over HTTPS. The process runs as `app`.
