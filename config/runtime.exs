@@ -613,6 +613,27 @@ config :tymeslot,
   crm_projection_operator_base_url:
     System.get_env("CRM_PROJECTION_OPERATOR_BASE_URL", "https://book.mypawtrainer.com")
 
+# Owner-scoped hours-before-start cutoff for private reschedule tokens.
+# Values are owner IDs, not secrets. Unset means tokens cannot be issued.
+case System.get_env("MPT_RESCHEDULE_DEADLINE_HOURS") do
+  raw when is_binary(raw) and raw != "" ->
+    case Integer.parse(raw) do
+      {hours, ""} when hours >= 0 ->
+        owner_id =
+          "MPT_OWNER_USER_ID"
+          |> System.get_env("1")
+          |> String.to_integer()
+
+        config :tymeslot, :mypawtrainer_reschedule_deadlines, %{owner_id => hours}
+
+      _other ->
+        raise "MPT_RESCHEDULE_DEADLINE_HOURS must be a non-negative integer"
+    end
+
+  _unset ->
+    :ok
+end
+
 # Social Authentication Configuration
 # These environment variables control whether social login is enabled
 #

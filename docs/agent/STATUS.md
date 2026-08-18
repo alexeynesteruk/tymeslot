@@ -282,8 +282,15 @@ treat the current host image as a customer launch.
   `32259`, and `32258`. Forty-five previously active ZIPs were deactivated so
   only those three remain. Days off, notice, window, buffer, and rescheduling
   deadline are still unset.
-- Stripe sandbox test keys and test-mode webhook endpoints are on VM 2.
-  `MEETING_PAYMENTS_ENABLED` remains `false`. Live charges stay off.
+- Stripe sandbox test keys, test webhooks, and a charges-enabled Connect
+  test account are on VM 2. `MEETING_PAYMENTS_ENABLED` is `true` for
+  test-mode only. Live charges stay off. Event types stay inactive.
+- Operator-chosen test policy on owner 1: 24-hour notice, 30-day window,
+  30-minute buffer, 24-hour reschedule cutoff. All seven days remain
+  09:00-20:00 America/New_York. The reschedule cutoff is in the running
+  node via `Application.put_env/3` and in host env as
+  `MPT_RESCHEDULE_DEADLINE_HOURS=24`; the runtime reader is committed but
+  not in image `702c589f` yet.
 - Anna has not supplied notice, window, buffer, rescheduling deadline,
   saved-card authorization, cancellation/refund policy, safety wording,
   monthly/assistant-dog operating details, replacement FAQ, photography,
