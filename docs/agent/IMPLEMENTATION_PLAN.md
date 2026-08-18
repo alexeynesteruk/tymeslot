@@ -16,9 +16,15 @@ Use TDD and signed commits. The detailed approved plan is
    minimum asynchronous CRM projection. Done locally; delivery stays disabled.
 6. Add operations, recovery, and test-mode acceptance before activation.
    Started. Production-disabled image `tymeslot:1eb79b11` is on VM 2. Task 16
-   is not accepted: credo --strict remains red. Live `$140` card-save, Google
-   Calendar write, and Stripe test-mode manual charge succeeded. Recovery
-   and refund have not run. Do not start Task 17.
+   is not accepted. Remaining, in order:
+   1. Leave `mix credo --strict` as residual upstream debt.
+   2. Private Stripe test-mode recovery. Done: `charge_failed` plus
+      `RecoverySessions.create/2`. Recovery Checkout not completed.
+   3. Private Stripe test-mode refund. Done: full `$140` refund on
+      payment `0d85db80-9625-4008-a129-f84043c0aa48`.
+   4. Optional application rollback rehearsal to `tymeslot:702c589f`.
+   5. Optional private `$49` / `$190` probes with types deactivated afterward.
+   6. Record evidence. This change. Do not start Task 17.
 
 ## Current Task 2 contract
 

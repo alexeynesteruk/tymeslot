@@ -17,10 +17,14 @@ Tymeslot fork.
 - Local checkout: `/Users/anesteruk/Documents/tymeslot`
 - Active worktree: `/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7`
 - Branch: `feat/mpt-task7`
+- Current code SHA: `1eb79b11`
+- Host image: `tymeslot:1eb79b11`
 - Audited baseline: `5c19a7510eaae9df8a7a6737133d9242e7a29b59`
 - Scheduler hostname: `book.mypawtrainer.com`
 - Website repository: `/Users/anesteruk/Documents/mypawtrainer.com`
 
-Start with `STATUS.md`, validate proposed work against `REQUIREMENTS.md`, and
-take the next task from `IMPLEMENTATION_PLAN.md`. These documents do not by
-themselves authorize production activation.
+Start with `STATUS.md`. The live `$140` setup, charge, refund, and
+recovery-session path ran on `tymeslot:1eb79b11`. Optional `$49` /
+`$190` host probes, recovery Checkout completion to `paid`, and image
+rollback remain open. These documents do not authorize a customer
+launch or Task 17.

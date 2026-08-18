@@ -213,9 +213,10 @@ with explicit Homebrew paths. Formatting and `git diff --check` pass.
 
 ## Task 16 gate
 
-Re-run on 2026-08-18 from
+Code-quality gate was run on 2026-08-18 from
 `/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7` at `5348c106`.
-Host image is now `tymeslot:1eb79b11`.
+Later commits `1eb79b11` and `6259eba6` added the customer-heal fix and
+deploy evidence. Host image is `tymeslot:1eb79b11`.
 
 | Command | Result |
 | --- | --- |
@@ -252,7 +253,10 @@ Resulting booking `c1e98935-42a5-4d5a-a9d6-157d8fc2b9e1`: meeting
 `confirmed` then owner-completed, payment `card_saved` at `$140`, no
 PaymentIntent or charge, Google Calendar event
 `c9175467bd2a4e48b8ef971d0b9ec5c3` written, follow-up entitlement
-created for 2026-08-26 through 2026-09-01. Event type deactivated;
+created for 2026-08-26 through 2026-09-01. Owner refund
+`Refunds.issue_refund/3` later set payment
+`0d85db80-9625-4008-a129-f84043c0aa48` to `refunded` with
+`refunded_amount_cents=14000`. Event type deactivated;
 `EventRoutes.resolve/2` is `:unavailable`. Website booking URLs stayed
 unset.
 
@@ -269,10 +273,25 @@ Gaps found on the live path, now deployed on `tymeslot:1eb79b11`:
   with PaymentIntent `pi_3U5nhEI86BQ5JZdC1wYQtcoc` and charge
   `ch_3U5nhEI86BQ5JZdC1Qog49UQ` (`livemode=false`, captured).
 
+A second private `$140` recovery probe on 2026-08-18 used test card
+`4000000000000341` (attach succeeds, later charge fails). Type 4 was
+activated only for `Orchestrator.submit_booking/1`, then set
+`is_active=false` and `is_private=true` in the same `rpc`. Booking
+`2190740d-99e3-4a26-9b2a-899590702534` confirmed after setup Checkout.
+Owner completion plus `ManualCharges.reserve/2` produced PaymentIntent
+`pi_3U5oTYI86BQ5JZdC11sHbvQ2` and payment
+`8f473879-5bcf-4053-8944-016f1a7d7dda` `charge_failed` /
+`card_declined`. `RecoverySessions.create/2` as owner 1 created hosted
+Checkout `cs_test_a1tq4X6GH3D5dufP3IhBwQCFUeyhx6cP7o378fZmLDKwJlkFnJTXhBiYz7`.
+Final payment status after session create remains `charge_failed`.
+Recovery Checkout was not completed. All three
+`EventRoutes.resolve/2` results are `:unavailable`. Website booking
+URLs stayed unset.
+
 | Service | Setup charge | Confirmation | Calendar | Manual charge | Recovery | Refund |
 | --- | --- | --- | --- | --- | --- | --- |
 | discovery-call $49 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
-| online-consultation $140 | live Stripe test Checkout, $0 | card_saved then owner-completed | Google event written | live Stripe test charge `$140` | not on host | not on host |
+| online-consultation $140 | live Stripe test Checkout, $0 | card_saved then owner-completed | Google event written | live Stripe test charge `$140`, plus later `card_declined` | live `RecoverySessions.create/2`; session created; payment left `charge_failed` | live full `$140` refund on payment `0d85db80-9625-4008-a129-f84043c0aa48` |
 | in-home-consultation $190 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
 
 ### Backup, restore, rollback
@@ -297,16 +316,18 @@ Gaps found on the live path, now deployed on `tymeslot:1eb79b11`:
 
 ## Next safe action
 
-Do not activate production booking. Website booking URLs stay off. Remaining
-Task 16 gaps are credo --strict (upstream), private recovery/refund against
-the connected calendar, and image rollback. Do not start Task 17. Do not
+Do not activate production booking. Website booking URLs stay off.
+Remaining Task 16 gaps are credo --strict (upstream), optional image
+rollback, and optional `$49` / `$190` host probes. Live `$140` refund
+and recovery-session create have run. Do not start Task 17. Do not
 treat the current host image as a customer launch.
 
 ## Production blockers
 
 - Task 16 is not accepted. Credo `--strict` remains red. Live `$140`
-  card-save, Google Calendar write, and Stripe test-mode manual charge
-  succeeded on image `1eb79b11`. Recovery and refund have not run.
+  card-save, Google Calendar write, Stripe test-mode manual charge,
+  full refund, and owner recovery-session create succeeded on image
+  `1eb79b11`. Recovery Checkout was not completed to `paid`.
 - Price and minimum booking projection events have transactional outbox and
   signed delivery locally. CRM delivery remains disabled.
 - Anna supplied bookable hours 09:00-20:00 America/New_York, applied to all
