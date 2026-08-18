@@ -316,11 +316,13 @@ URLs stayed unset.
 
 ## Next safe action
 
-Do not activate production booking. Website booking URLs stay off.
-Remaining Task 16 gaps are credo --strict (upstream), optional image
-rollback, and optional `$49` / `$190` host probes. Live `$140` refund
-and recovery-session create have run. Do not start Task 17. Do not
-treat the current host image as a customer launch.
+Direct event types are active on the host in Stripe test mode:
+`/annak/discovery-call`, `/annak/online-consultation`, and
+`/annak/in-home-consultation` return HTTP 200. Website booking URLs and
+`resolveBookingTarget` stay inquiry-only. Do not treat this as a
+customer launch or live-Stripe activation. Remaining Task 16 gaps are
+credo --strict (upstream), optional image rollback, and live `$49` /
+`$190` payment probes. Do not start Task 17.
 
 ## Production blockers
 
