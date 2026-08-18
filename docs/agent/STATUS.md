@@ -255,17 +255,22 @@ created for 2026-08-26 through 2026-09-01. Event type deactivated;
 `EventRoutes.resolve/2` is `:unavailable`. Website booking URLs stayed
 unset.
 
-Gaps found on the live path:
+Gaps found on the live path, now fixed locally on `feat/mpt-task7`
+(not in image `702c589f`):
 
-- Checkout setup created a payment method but no Stripe Customer, so
-  `ManualCharges.reserve/2` returned `:missing_stripe_customer`.
-- The Quill return page only treats `payment.status == "paid"` / PubSub
-  `:paid` as success, so it stayed on "Confirming your payment…".
+- Checkout setup now creates a Connect Customer and binds `customer`
+  on the session so the saved card can be charged later.
+- Webhook confirmation heals a missing customer, broadcasts
+  `:card_saved`, and both theme return pages plus the embed iframe
+  treat `card_saved` as confirmed.
+- `ManualCharges.reserve/2` heals a missing customer on an already
+  saved card before reserving, so the existing live probe can be
+  charged after this image is deployed.
 
 | Service | Setup charge | Confirmation | Calendar | Manual charge | Recovery | Refund |
 | --- | --- | --- | --- | --- | --- | --- |
 | discovery-call $49 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
-| online-consultation $140 | live Stripe test Checkout, $0 | card_saved; return page still spinning | Google event written | blocked: no customer | not on host | not on host |
+| online-consultation $140 | live Stripe test Checkout, $0 | card_saved; return-page fix is local only | Google event written | blocked on host image; heal is local | not on host | not on host |
 | in-home-consultation $190 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
 
 ### Backup, restore, rollback
@@ -289,16 +294,17 @@ Gaps found on the live path:
 ## Next safe action
 
 Do not activate production booking. Website booking URLs stay off. Remaining
-Task 16 gaps are credo --strict (upstream), creating a Stripe Customer during
-setup so manual charge can run, the deferred confirmation page, and image
-rollback. Do not start Task 17. Do not treat the current host image as a
-customer launch.
+Task 16 gaps are credo --strict (upstream), deploying the customer/return-page
+fix, re-running private charge/recovery/refund against the connected calendar,
+and image rollback. Do not start Task 17. Do not treat the current host image
+as a customer launch.
 
 ## Production blockers
 
 - Task 16 is not accepted. Credo `--strict` remains red. Live `$140`
-  card-save and Google Calendar write succeeded. Manual charge is blocked
-  by a missing Stripe Customer. Recovery and refund have not run.
+  card-save and Google Calendar write succeeded. Manual charge remains
+  blocked on image `702c589f`; the customer-create and charge-heal fixes
+  are local only. Recovery and refund have not run.
 - Price and minimum booking projection events have transactional outbox and
   signed delivery locally. CRM delivery remains disabled.
 - Anna supplied bookable hours 09:00-20:00 America/New_York, applied to all

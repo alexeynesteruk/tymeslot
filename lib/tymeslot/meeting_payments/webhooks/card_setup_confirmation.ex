@@ -7,6 +7,7 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CardSetupConfirmation do
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MeetingPayments.BookingPaymentSchema
   alias Tymeslot.MeetingPayments.PostConfirmation
+  alias Tymeslot.MeetingPayments.StripeAdapter
   alias Tymeslot.MeetingPayments.Telemetry
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.MyPawTrainer.CrmProjection
@@ -14,17 +15,80 @@ defmodule Tymeslot.MeetingPayments.Webhooks.CardSetupConfirmation do
 
   @spec apply(BookingPaymentSchema.t(), map()) :: :ok | {:error, term()}
   def apply(%BookingPaymentSchema{} = payment, attrs) do
+    attrs = resolve_customer(payment, attrs)
+
     case Repo.transaction(fn -> apply_in_transaction(payment, attrs) end) do
       {:ok, {:confirmed, updated, meeting}} ->
         PostConfirmation.enqueue(meeting, updated)
+        broadcast_card_saved(meeting.id)
         :ok
 
       {:ok, :already_confirmed} ->
+        broadcast_card_saved(payment.meeting_id)
         :ok
 
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp resolve_customer(payment, attrs) do
+    cond do
+      present?(attrs[:stripe_customer_id]) ->
+        attrs
+
+      present?(payment.stripe_customer_id) ->
+        Map.put(attrs, :stripe_customer_id, payment.stripe_customer_id)
+
+      present?(attrs[:stripe_payment_method_id]) ->
+        case create_and_attach(payment, attrs[:stripe_payment_method_id]) do
+          {:ok, customer_id} -> Map.put(attrs, :stripe_customer_id, customer_id)
+          {:error, _reason} -> attrs
+        end
+
+      true ->
+        attrs
+    end
+  end
+
+  defp create_and_attach(payment, payment_method_id) do
+    with {:ok, customer} <-
+           StripeAdapter.create_customer(
+             customer_params(payment),
+             connect_account: payment.stripe_account_id,
+             idempotency_key: "setup-customer:#{payment.id}"
+           ),
+         {:ok, customer_id} <- customer_id(customer),
+         {:ok, _method} <-
+           StripeAdapter.attach_payment_method(
+             payment_method_id,
+             %{customer: customer_id},
+             connect_account: payment.stripe_account_id
+           ) do
+      {:ok, customer_id}
+    end
+  end
+
+  defp customer_params(payment) do
+    %{email: payment.attendee_email}
+    |> then(fn params ->
+      if present?(payment.attendee_name),
+        do: Map.put(params, :name, payment.attendee_name),
+        else: params
+    end)
+  end
+
+  defp customer_id(%{"id" => id}) when is_binary(id), do: {:ok, id}
+  defp customer_id(%{id: id}) when is_binary(id), do: {:ok, id}
+  defp customer_id(_other), do: {:error, :customer_missing}
+
+  defp present?(value) when is_binary(value), do: value != ""
+  defp present?(_value), do: false
+
+  defp broadcast_card_saved(nil), do: :ok
+
+  defp broadcast_card_saved(meeting_id) do
+    Phoenix.PubSub.broadcast(Tymeslot.PubSub, "meeting_payment:#{meeting_id}", :card_saved)
   end
 
   defp apply_in_transaction(payment, attrs) do

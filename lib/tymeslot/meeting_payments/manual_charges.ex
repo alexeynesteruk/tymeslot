@@ -3,6 +3,7 @@ defmodule Tymeslot.MeetingPayments.ManualCharges do
 
   alias Tymeslot.MeetingPayments.BookingPaymentAudits
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
+  alias Tymeslot.MeetingPayments.StripeAdapter
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.MyPawTrainer.ServiceCatalog
   alias Tymeslot.Repo
@@ -11,6 +12,16 @@ defmodule Tymeslot.MeetingPayments.ManualCharges do
 
   @spec reserve(Ecto.UUID.t(), pos_integer()) :: {:ok, map()} | {:error, atom() | term()}
   def reserve(payment_id, actor_user_id) when is_integer(actor_user_id) do
+    with {:ok, payment} <- fetch_payment(payment_id),
+         :ok <- authorize(payment, actor_user_id),
+         :ok <- heal_missing_customer(payment) do
+      do_reserve(payment_id, actor_user_id)
+    end
+  end
+
+  def reserve(_payment_id, _actor_user_id), do: {:error, :not_authorized}
+
+  defp do_reserve(payment_id, actor_user_id) do
     Repo.transaction(fn ->
       with {:ok, payment} <- BookingPaymentQueries.get_for_update(payment_id),
            :ok <- authorize(payment, actor_user_id),
@@ -38,7 +49,62 @@ defmodule Tymeslot.MeetingPayments.ManualCharges do
     end)
   end
 
-  def reserve(_payment_id, _actor_user_id), do: {:error, :not_authorized}
+  defp fetch_payment(payment_id) do
+    case BookingPaymentQueries.get(payment_id) do
+      nil -> {:error, :not_found}
+      payment -> {:ok, payment}
+    end
+  end
+
+  # Stripe calls stay outside the reserve lock. A missing customer on an
+  # otherwise saved card is the live setup-mode gap; heal it once, then
+  # let the existing identifier checks reject a still-incomplete row.
+  defp heal_missing_customer(%{stripe_customer_id: customer_id} = payment)
+       when not is_binary(customer_id) or customer_id == "" do
+    maybe_create_and_attach(payment)
+  end
+
+  defp heal_missing_customer(_payment), do: :ok
+
+  defp maybe_create_and_attach(payment) do
+    with :ok <- require_identifier(payment.stripe_account_id, :missing_stripe_account),
+         :ok <-
+           require_identifier(payment.stripe_payment_method_id, :missing_stripe_payment_method),
+         {:ok, customer} <-
+           StripeAdapter.create_customer(
+             customer_params(payment),
+             connect_account: payment.stripe_account_id,
+             idempotency_key: "setup-customer:#{payment.id}"
+           ),
+         {:ok, customer_id} <- customer_id(customer),
+         {:ok, _method} <-
+           StripeAdapter.attach_payment_method(
+             payment.stripe_payment_method_id,
+             %{customer: customer_id},
+             connect_account: payment.stripe_account_id
+           ),
+         {:ok, _updated} <-
+           BookingPaymentQueries.update(payment, %{stripe_customer_id: customer_id}) do
+      :ok
+    else
+      {:error, :missing_stripe_account} -> :ok
+      {:error, :missing_stripe_payment_method} -> :ok
+      {:error, _reason} -> :ok
+    end
+  end
+
+  defp customer_params(payment) do
+    %{email: payment.attendee_email}
+    |> then(fn params ->
+      if is_binary(payment.attendee_name) and payment.attendee_name != "",
+        do: Map.put(params, :name, payment.attendee_name),
+        else: params
+    end)
+  end
+
+  defp customer_id(%{"id" => id}) when is_binary(id), do: {:ok, id}
+  defp customer_id(%{id: id}) when is_binary(id), do: {:ok, id}
+  defp customer_id(_other), do: {:error, :customer_missing}
 
   defp authorize(%{host_user_id: actor_user_id}, actor_user_id), do: :ok
   defp authorize(_payment, _actor_user_id), do: {:error, :not_authorized}

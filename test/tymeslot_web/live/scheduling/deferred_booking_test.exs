@@ -66,9 +66,16 @@ defmodule TymeslotWeb.Live.Scheduling.DeferredBookingTest do
 
   test "deferred booking creates setup checkout, holds awaiting_card, and does not charge",
        %{user: user, meeting_type: meeting_type} do
+    expect(StripeAdapterMock, :create_customer, fn params, opts ->
+      assert opts[:connect_account] == "acct_HOST"
+      assert params.email == "guest@example.com"
+      {:ok, %{"id" => "cus_DEFERRED"}}
+    end)
+
     expect(StripeAdapterMock, :create_setup_checkout_session, fn params, opts ->
       assert opts[:connect_account] == "acct_HOST"
       assert params.mode == "setup"
+      assert params.customer == "cus_DEFERRED"
       refute Map.has_key?(params, :payment_intent_data)
       refute Map.has_key?(params, :line_items)
 

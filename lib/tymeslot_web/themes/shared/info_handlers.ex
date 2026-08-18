@@ -127,12 +127,12 @@ defmodule TymeslotWeb.Themes.Shared.InfoHandlers do
   end
 
   @doc """
-  Handles the `:paid` PubSub broadcast for an embedded paid booking.
+  Handles the `:paid` or `:card_saved` PubSub broadcast for an embedded booking.
 
   The booker iframe subscribed to `meeting_payment:<meeting_id>` when it
   pushed Stripe Checkout to a new tab; when the webhook confirms the
-  payment we flip the iframe directly to the theme's `:confirmation`
-  view so the attendee never sees Stripe inside the host's page.
+  payment or saved card we flip the iframe directly to the theme's
+  `:confirmation` view so the attendee never sees Stripe inside the host's page.
   """
   @spec handle_payment_paid(
           Phoenix.LiveView.Socket.t(),

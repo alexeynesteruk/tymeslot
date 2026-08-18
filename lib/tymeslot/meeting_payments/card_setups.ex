@@ -36,6 +36,7 @@ defmodule Tymeslot.MeetingPayments.CardSetups do
   def create_session_for_booking(meeting) do
     with {:ok, context} <- build_context(meeting),
          {:ok, booking_payment} <- BookingPaymentQueries.insert(context.snapshot),
+         {:ok, booking_payment} <- attach_customer(meeting, booking_payment, context),
          {:ok, session} <- create_setup_session(meeting, context, booking_payment),
          {:ok, booking_payment} <- attach_setup_details(booking_payment, session, context) do
       {:ok, %{checkout_url: session_url(session), booking_payment: booking_payment}}
@@ -96,7 +97,7 @@ defmodule Tymeslot.MeetingPayments.CardSetups do
       %{
         mode: "setup",
         payment_method_types: ["card"],
-        customer_email: meeting.attendee_email,
+        customer: booking_payment.stripe_customer_id,
         success_url: success_url(slug, meeting.id) <> "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url: cancel_url(slug, meeting.id),
         client_reference_id: meeting.id,
@@ -114,6 +115,46 @@ defmodule Tymeslot.MeetingPayments.CardSetups do
       connect_account: account.stripe_account_id,
       idempotency_key: "setup-checkout:#{booking_payment.id}"
     )
+  end
+
+  defp attach_customer(meeting, booking_payment, context) do
+    with {:ok, customer} <-
+           StripeAdapter.create_customer(
+             customer_params(meeting),
+             connect_account: context.account.stripe_account_id,
+             idempotency_key: "setup-customer:#{booking_payment.id}"
+           ),
+         {:ok, customer_id} <- customer_id(customer) do
+      persist_customer(booking_payment, customer_id)
+    end
+  end
+
+  defp customer_params(meeting) do
+    %{email: meeting.attendee_email}
+    |> maybe_put(:name, meeting.attendee_name)
+  end
+
+  defp maybe_put(params, _key, nil), do: params
+  defp maybe_put(params, _key, ""), do: params
+  defp maybe_put(params, key, value), do: Map.put(params, key, value)
+
+  defp customer_id(%{"id" => id}) when is_binary(id), do: {:ok, id}
+  defp customer_id(%{id: id}) when is_binary(id), do: {:ok, id}
+  defp customer_id(_other), do: {:error, :customer_missing}
+
+  defp persist_customer(booking_payment, customer_id) do
+    Repo.transaction(fn ->
+      case BookingPaymentQueries.get_for_update(booking_payment.id) do
+        {:ok, locked} ->
+          case BookingPaymentQueries.update(locked, %{stripe_customer_id: customer_id}) do
+            {:ok, updated} -> updated
+            {:error, reason} -> Repo.rollback(reason)
+          end
+
+        {:error, reason} ->
+          Repo.rollback(reason)
+      end
+    end)
   end
 
   defp attach_setup_details(booking_payment, session, context) do

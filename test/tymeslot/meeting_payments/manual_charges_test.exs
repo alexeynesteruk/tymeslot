@@ -1,14 +1,19 @@
 defmodule Tymeslot.MeetingPayments.ManualChargesTest do
-  use Tymeslot.DataCase, async: true
+  use Tymeslot.DataCase, async: false
   use Oban.Testing, repo: Tymeslot.Repo
 
   @moduletag :database
   @moduletag :payments
 
+  import Mox
+
   alias Tymeslot.MeetingPayments.BookingPaymentAudits
+  alias Tymeslot.MeetingPayments.StripeAdapterMock
   alias Tymeslot.MeetingPayments.BookingPaymentQueries
   alias Tymeslot.MeetingPayments.ManualCharges
   alias Tymeslot.MeetingPayments.Workers.ChargeBookingPayment
+
+  setup :verify_on_exit!
 
   @snapshot %{
     "service_id" => "discovery-call",
@@ -56,6 +61,14 @@ defmodule Tymeslot.MeetingPayments.ManualChargesTest do
 
     assert {:error, :not_authorized} = ManualCharges.reserve(payment.id, foreign_host.id)
     assert_unchanged(payment)
+  end
+
+  test "does not create a Stripe customer for a foreign host" do
+    %{payment: payment} = card_saved_payment(stripe_customer_id: nil)
+    foreign_host = insert(:user)
+
+    assert {:error, :not_authorized} = ManualCharges.reserve(payment.id, foreign_host.id)
+    assert is_nil(BookingPaymentQueries.get(payment.id).stripe_customer_id)
   end
 
   test "requires a completed meeting" do
@@ -106,10 +119,9 @@ defmodule Tymeslot.MeetingPayments.ManualChargesTest do
     assert_unchanged(payment)
   end
 
-  test "requires Stripe account, customer, and payment method identifiers" do
+  test "requires Stripe account and payment method identifiers" do
     for {field, error} <- [
           {:stripe_account_id, :missing_stripe_account},
-          {:stripe_customer_id, :missing_stripe_customer},
           {:stripe_payment_method_id, :missing_stripe_payment_method}
         ] do
       %{host: host, payment: payment} = card_saved_payment([{field, ""}])
@@ -117,6 +129,34 @@ defmodule Tymeslot.MeetingPayments.ManualChargesTest do
       assert {:error, ^error} = ManualCharges.reserve(payment.id, host.id)
       assert_unchanged(payment)
     end
+  end
+
+  test "attaches a missing customer to the saved card before reserving" do
+    %{host: host, payment: payment} = card_saved_payment(stripe_customer_id: nil)
+
+    expect(StripeAdapterMock, :create_customer, fn params, opts ->
+      assert opts[:connect_account] == "acct_HOST"
+      assert params.email == payment.attendee_email
+      {:ok, %{"id" => "cus_HEALED"}}
+    end)
+
+    expect(StripeAdapterMock, :attach_payment_method, fn "pm_CARD", params, opts ->
+      assert opts[:connect_account] == "acct_HOST"
+      assert params.customer == "cus_HEALED"
+      {:ok, %{"id" => "pm_CARD"}}
+    end)
+
+    assert {:ok, reservation} = ManualCharges.reserve(payment.id, host.id)
+    assert reservation.booking_payment.stripe_customer_id == "cus_HEALED"
+    assert BookingPaymentQueries.get(payment.id).stripe_customer_id == "cus_HEALED"
+  end
+
+  test "still rejects a charge when no customer can be created" do
+    %{host: host, payment: payment} =
+      card_saved_payment(stripe_customer_id: nil, stripe_payment_method_id: "")
+
+    assert {:error, :missing_stripe_customer} = ManualCharges.reserve(payment.id, host.id)
+    assert_unchanged(payment)
   end
 
   defp card_saved_payment(attrs \\ []) do

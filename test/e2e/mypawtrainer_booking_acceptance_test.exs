@@ -98,10 +98,17 @@ defmodule Tymeslot.E2E.MyPawTrainerBookingAcceptanceTest do
         refute Map.has_key?(meeting_params(owner, event_type, duration, service_id), :zip)
       end
 
+      expect(StripeAdapterMock, :create_customer, fn params, opts ->
+        assert opts[:connect_account] == "acct_TEST"
+        assert params.email == "client@example.com"
+        {:ok, %{"id" => "cus_test_#{String.replace(service_id, "-", "_")}"}}
+      end)
+
       expect(StripeAdapterMock, :create_setup_checkout_session, fn params, opts ->
         assert opts[:connect_account] == "acct_TEST"
         assert params.mode == "setup"
         assert params.payment_method_types == ["card"]
+        assert params.customer == "cus_test_#{String.replace(service_id, "-", "_")}"
         assert params.setup_intent_data.metadata.service_id == service_id
         refute Map.has_key?(params, :payment_intent_data)
         refute Map.has_key?(params, :line_items)
@@ -142,6 +149,7 @@ defmodule Tymeslot.E2E.MyPawTrainerBookingAcceptanceTest do
       payment = BookingPaymentQueries.by_meeting_id(meeting.id)
       assert payment.status == "setup_pending"
       assert payment.amount_cents == price_cents
+      assert payment.stripe_customer_id == "cus_test_#{String.replace(service_id, "-", "_")}"
       assert is_nil(payment.stripe_payment_intent_id)
       assert is_nil(payment.stripe_charge_id)
 

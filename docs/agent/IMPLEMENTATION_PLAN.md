@@ -17,8 +17,9 @@ Use TDD and signed commits. The detailed approved plan is
 6. Add operations, recovery, and test-mode acceptance before activation.
    Started. Production-disabled image `tymeslot:702c589f` is on VM 2. Task 16
    is not accepted: credo --strict remains red. Live `$140` card-save and
-   Google Calendar write succeeded; manual charge is blocked by a missing
-   Stripe Customer. Do not start Task 17.
+   Google Calendar write succeeded. Customer-create, return-page, and
+   charge-heal fixes are local on `feat/mpt-task7` and not deployed. Do not
+   start Task 17.
 
 ## Current Task 2 contract
 

@@ -96,6 +96,19 @@ defmodule TymeslotWeb.Themes.Shared.PaymentReturn do
   def topic(meeting_id), do: "meeting_payment:#{meeting_id}"
 
   @doc """
+  True when the return page should show the confirmed booking copy.
+
+  Immediate Checkout lands on `paid`. Deferred setup lands on `card_saved`
+  and must not keep spinning on "Confirming your payment…".
+  """
+  @spec confirmed?(map() | nil) :: boolean()
+  def confirmed?(%{status: status})
+      when status in ["card_saved", "paid", "partially_refunded", "refunded"],
+      do: true
+
+  def confirmed?(_payment), do: false
+
+  @doc """
   Mounts a per-theme payment-processing LiveView. Authorises the meeting,
   subscribes to the payment topic on connect, and assigns `:meeting` and
   `:payment` on success. On failure the socket is redirected to `/` with

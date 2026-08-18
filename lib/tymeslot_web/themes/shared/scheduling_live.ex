@@ -152,7 +152,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingLive do
       # PubSub broadcasts for embedded paid bookings — see
       # `BookingSubmissionHandlerComponent.handle_payment_required_embedded/3`.
       @impl Phoenix.LiveView
-      def handle_info(:paid, socket) do
+      def handle_info(msg, socket) when msg in [:paid, :card_saved] do
         InfoHandlers.handle_payment_paid(socket, &transition_to/3)
       end
 

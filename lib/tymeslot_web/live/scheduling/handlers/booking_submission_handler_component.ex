@@ -446,8 +446,8 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.BookingSubmissionHandlerComponent
   # Stripe Checkout cannot render inside an iframe, so embedded bookers
   # open Checkout in a new tab and stay on a "complete in new tab" screen.
   # The iframe LiveView subscribes to `meeting_payment:<id>` and flips to
-  # the confirmation view when the webhook broadcasts `:paid`, or back to
-  # the booking form on `:expired`.
+  # the confirmation view when the webhook broadcasts `:paid` or
+  # `:card_saved`, or back to the booking form on `:expired`.
   defp handle_payment_required_embedded(socket, meeting, url, sanitized_params) do
     Logger.info("Embedded booking awaiting payment in new tab",
       meeting_id: meeting.id,

@@ -5,6 +5,10 @@ defmodule Tymeslot.MeetingPayments.Webhooks.SetupIntentTest do
   @moduletag :payments
   @moduletag :integration
 
+  import Mox
+
+  alias Phoenix.PubSub
+  alias Tymeslot.MeetingPayments.StripeAdapterMock
   alias Tymeslot.MeetingPayments.Webhooks.CheckoutSessionCompleted
   alias Tymeslot.MeetingPayments.Webhooks.CheckoutSessionExpired
   alias Tymeslot.MeetingPayments.Webhooks.SetupIntentSetupFailed
@@ -23,7 +27,44 @@ defmodule Tymeslot.MeetingPayments.Webhooks.SetupIntentTest do
     "event_type_version" => 1
   }
 
+  setup :verify_on_exit!
+
   describe "setup_intent.succeeded" do
+    test "creates and attaches a customer when Stripe omitted one" do
+      {meeting, payment} = insert_deferred_payment(setup_intent_id: "seti_NO_CUS")
+
+      expect(StripeAdapterMock, :create_customer, fn params, opts ->
+        assert opts[:connect_account] == "acct_HOST"
+        assert params.email == payment.attendee_email
+        {:ok, %{"id" => "cus_HEALED"}}
+      end)
+
+      expect(StripeAdapterMock, :attach_payment_method, fn "pm_OK", params, opts ->
+        assert opts[:connect_account] == "acct_HOST"
+        assert params.customer == "cus_HEALED"
+        {:ok, %{"id" => "pm_OK"}}
+      end)
+
+      event =
+        setup_event("evt_NO_CUS", "seti_NO_CUS", payment, meeting)
+        |> put_in(["data", "object", "customer"], nil)
+
+      assert :ok = SetupIntentSucceeded.handle(event)
+      assert Repo.reload!(payment).stripe_customer_id == "cus_HEALED"
+    end
+
+    test "broadcasts card_saved so the return page can flip" do
+      {meeting, payment} = insert_deferred_payment(setup_intent_id: "seti_BCAST")
+      PubSub.subscribe(Tymeslot.PubSub, "meeting_payment:#{meeting.id}")
+
+      assert :ok =
+               SetupIntentSucceeded.handle(
+                 setup_event("evt_BCAST", "seti_BCAST", payment, meeting)
+               )
+
+      assert_receive :card_saved
+    end
+
     test "saves the card, confirms the meeting, and never charges" do
       {meeting, payment} = insert_deferred_payment(setup_intent_id: "seti_OK")
 

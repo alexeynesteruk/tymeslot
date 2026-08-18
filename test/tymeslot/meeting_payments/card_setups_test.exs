@@ -70,11 +70,46 @@ defmodule Tymeslot.MeetingPayments.CardSetupsTest do
   end
 
   describe "create_session_for_booking/1" do
+    test "creates a Connect customer and binds it on the setup session",
+         %{user: user, meeting_type: meeting_type} do
+      meeting = insert_deferred_meeting(user, meeting_type)
+
+      expect(StripeAdapterMock, :create_customer, fn params, opts ->
+        assert opts[:connect_account] == "acct_HOST"
+        assert opts[:idempotency_key] =~ ~r/^setup-customer:[0-9a-f-]{36}$/
+        assert params.email == "guest@example.com"
+        assert params.name == "Guest"
+        {:ok, %{"id" => "cus_SETUP"}}
+      end)
+
+      expect(StripeAdapterMock, :create_setup_checkout_session, fn params, opts ->
+        assert opts[:connect_account] == "acct_HOST"
+        assert params.customer == "cus_SETUP"
+        refute Map.has_key?(params, :customer_email)
+
+        {:ok,
+         %{
+           id: "cs_SETUP",
+           url: "https://checkout.stripe.com/cs_SETUP",
+           setup_intent: %{id: "seti_SETUP"}
+         }}
+      end)
+
+      assert {:ok, %{booking_payment: payment}} = CardSetups.create_session_for_booking(meeting)
+      assert payment.stripe_customer_id == "cus_SETUP"
+    end
+
     test "creates a setup-mode session without charging and snapshots the meeting price",
          %{user: user, meeting_type: meeting_type} do
       meeting = insert_deferred_meeting(user, meeting_type)
 
       test_pid = self()
+
+      expect(StripeAdapterMock, :create_customer, fn params, opts ->
+        assert opts[:connect_account] == "acct_HOST"
+        assert params.email == "guest@example.com"
+        {:ok, %{"id" => "cus_SETUP"}}
+      end)
 
       expect(StripeAdapterMock, :create_setup_checkout_session, fn params, opts ->
         assert opts[:connect_account] == "acct_HOST"
@@ -82,7 +117,8 @@ defmodule Tymeslot.MeetingPayments.CardSetupsTest do
         send(test_pid, {:setup_opts, opts})
         assert params.mode == "setup"
         assert params.payment_method_types == ["card"]
-        assert params.customer_email == "guest@example.com"
+        assert params.customer == "cus_SETUP"
+        refute Map.has_key?(params, :customer_email)
         payment = BookingPaymentQueries.by_meeting_id(meeting.id)
         assert params.setup_intent_data.metadata.meeting_id == meeting.id
         assert params.setup_intent_data.metadata.booking_payment_id == payment.id
@@ -125,6 +161,10 @@ defmodule Tymeslot.MeetingPayments.CardSetupsTest do
       meeting = insert_deferred_meeting(user, meeting_type)
       test_pid = self()
 
+      expect(StripeAdapterMock, :create_customer, fn _params, _opts ->
+        {:ok, %{"id" => "cus_FAIL"}}
+      end)
+
       expect(StripeAdapterMock, :create_setup_checkout_session, fn _params, _opts ->
         payment = BookingPaymentQueries.by_meeting_id(meeting.id)
         send(test_pid, {:pre_stripe_payment, payment})
@@ -139,12 +179,17 @@ defmodule Tymeslot.MeetingPayments.CardSetupsTest do
 
       leftover = BookingPaymentQueries.by_meeting_id(meeting.id)
       assert leftover.status == "setup_pending"
+      assert leftover.stripe_customer_id == "cus_FAIL"
       assert is_nil(leftover.stripe_checkout_session_id)
     end
 
     test "retrieves an expanded SetupIntent when Stripe returns a bare id",
          %{user: user, meeting_type: meeting_type} do
       meeting = insert_deferred_meeting(user, meeting_type)
+
+      expect(StripeAdapterMock, :create_customer, fn _params, _opts ->
+        {:ok, %{"id" => "cus_BARE"}}
+      end)
 
       expect(StripeAdapterMock, :create_setup_checkout_session, fn _params, _opts ->
         {:ok,
@@ -170,8 +215,26 @@ defmodule Tymeslot.MeetingPayments.CardSetupsTest do
       assert payment.stripe_setup_intent_id == "seti_BARE"
     end
 
+    test "does not open Checkout when customer creation fails",
+         %{user: user, meeting_type: meeting_type} do
+      meeting = insert_deferred_meeting(user, meeting_type)
+
+      expect(StripeAdapterMock, :create_customer, fn _params, _opts ->
+        {:error, :stripe_unreachable}
+      end)
+
+      assert {:error, :stripe_unreachable} = CardSetups.create_session_for_booking(meeting)
+      leftover = BookingPaymentQueries.by_meeting_id(meeting.id)
+      assert leftover.status == "setup_pending"
+      assert is_nil(leftover.stripe_customer_id)
+    end
+
     test "does not call the charge checkout path", %{user: user, meeting_type: meeting_type} do
       meeting = insert_deferred_meeting(user, meeting_type)
+
+      expect(StripeAdapterMock, :create_customer, fn _params, _opts ->
+        {:ok, %{"id" => "cus_ONLY_SETUP"}}
+      end)
 
       expect(StripeAdapterMock, :create_setup_checkout_session, fn _params, _opts ->
         {:ok,

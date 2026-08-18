@@ -22,6 +22,14 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter do
               {:ok, map()} | {:error, term()}
   @callback create_setup_checkout_session(params :: map(), opts :: keyword()) ::
               {:ok, map()} | {:error, term()}
+  @callback create_customer(params :: map(), opts :: keyword()) ::
+              {:ok, map()} | {:error, term()}
+  @callback attach_payment_method(
+              payment_method_id :: String.t(),
+              params :: map(),
+              opts :: keyword()
+            ) ::
+              {:ok, map()} | {:error, term()}
   @callback retrieve_checkout_session(session_id :: String.t(), opts :: keyword()) ::
               {:ok, map()} | {:error, term()}
   @callback retrieve_payment_intent(intent_id :: String.t(), opts :: keyword()) ::
@@ -72,6 +80,24 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter do
     Telemetry.span_stripe(:create_setup_checkout_session, opts[:connect_account], fn ->
       impl().create_setup_checkout_session(params, opts)
     end)
+  end
+
+  @spec create_customer(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_customer(params, opts \\ []) do
+    normalise_read(
+      Telemetry.span_stripe(:create_customer, opts[:connect_account], fn ->
+        impl().create_customer(params, opts)
+      end)
+    )
+  end
+
+  @spec attach_payment_method(String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def attach_payment_method(payment_method_id, params, opts \\ []) do
+    normalise_read(
+      Telemetry.span_stripe(:attach_payment_method, opts[:connect_account], fn ->
+        impl().attach_payment_method(payment_method_id, params, opts)
+      end)
+    )
   end
 
   @spec retrieve_checkout_session(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
@@ -182,7 +208,9 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter.Stripity do
   alias Stripe.AccountLink
   alias Stripe.Charge
   alias Stripe.Checkout.Session, as: CheckoutSession
+  alias Stripe.Customer
   alias Stripe.PaymentIntent
+  alias Stripe.PaymentMethod
   alias Stripe.Refund
   alias Stripe.Webhook
   alias Tymeslot.MeetingPayments.StripeAdapter
@@ -201,6 +229,13 @@ defmodule Tymeslot.MeetingPayments.StripeAdapter.Stripity do
 
   @impl StripeAdapter
   def create_setup_checkout_session(params, opts), do: CheckoutSession.create(params, opts)
+
+  @impl StripeAdapter
+  def create_customer(params, opts), do: Customer.create(params, opts)
+
+  @impl StripeAdapter
+  def attach_payment_method(payment_method_id, params, opts),
+    do: PaymentMethod.attach(payment_method_id, params, opts)
 
   @impl StripeAdapter
   def retrieve_checkout_session(id, opts) do

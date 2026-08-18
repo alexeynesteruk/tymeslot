@@ -20,7 +20,7 @@ defmodule TymeslotWeb.Themes.Rhythm.PaymentProcessingLive do
   end
 
   @impl Phoenix.LiveView
-  def handle_info(:paid, socket) do
+  def handle_info(msg, socket) when msg in [:paid, :card_saved] do
     payment = MeetingPayments.payment_for_meeting(socket.assigns.meeting.id)
     {:noreply, assign(socket, :payment, payment)}
   end
@@ -33,7 +33,7 @@ defmodule TymeslotWeb.Themes.Rhythm.PaymentProcessingLive do
         <div class="payment-page-inner">
           <div class="payment-page-card">
             <div class="payment-page-card-body">
-              <%= if !@loading && @payment.status == "paid" do %>
+              <%= if !@loading && PaymentReturn.confirmed?(@payment) do %>
                 <h1 class="payment-page-heading">
                   {dgettext("booking", "Booking confirmed")}
                 </h1>

@@ -192,6 +192,36 @@ defmodule TymeslotWeb.Live.Scheduling.EmbedPaidBookingTest do
     end
 
     @tag :capture_log
+    test "PubSub :card_saved flips the iframe to :confirmation",
+         %{conn: conn, profile: profile, meeting_type: meeting_type} do
+      expect(StripeAdapterMock, :create_checkout_session, fn _params, _opts ->
+        {:ok, %{id: "cs_card_saved_flip", url: "https://checkout.stripe.com/cs_card_saved_flip"}}
+      end)
+
+      view = navigate_to_booking_form_embedded(conn, profile, meeting_type)
+
+      view
+      |> form("form[phx-submit='submit']", %{
+        "booking" => %{
+          "name" => "Save Sam",
+          "email" => "sam@example.com",
+          "message" => ""
+        }
+      })
+      |> render_submit()
+
+      _drain = :sys.get_state(view.pid)
+      meeting_id = :sys.get_state(view.pid).socket.assigns[:awaiting_payment_meeting].id
+
+      Phoenix.PubSub.broadcast(Tymeslot.PubSub, "meeting_payment:#{meeting_id}", :card_saved)
+      _drain = :sys.get_state(view.pid)
+
+      rendered = render(view)
+      refute rendered =~ "Complete your payment in the new tab"
+      assert rendered =~ ~s(data-testid="confirmation-heading")
+    end
+
+    @tag :capture_log
     test "PubSub :expired sends the iframe back to the booking step with a flash",
          %{conn: conn, profile: profile, meeting_type: meeting_type} do
       expect(StripeAdapterMock, :create_checkout_session, fn _params, _opts ->

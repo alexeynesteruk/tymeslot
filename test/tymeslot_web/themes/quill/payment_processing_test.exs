@@ -48,6 +48,57 @@ defmodule TymeslotWeb.Themes.Quill.PaymentProcessingTest do
     assert html =~ "Confirming your payment"
   end
 
+  test "shows confirmation when a deferred card is already saved", %{conn: conn, user: user} do
+    meeting = insert(:meeting, organizer_user_id: user.id, status: "confirmed")
+
+    insert(:booking_payment,
+      meeting: meeting,
+      host_user_id: user.id,
+      status: "card_saved",
+      payment_timing: "deferred",
+      service_snapshot: %{
+        "service_id" => "online-consultation",
+        "amount_cents" => 14_000,
+        "currency" => "usd"
+      },
+      stripe_checkout_session_id: "cs_SAVED"
+    )
+
+    {:ok, _view, html} =
+      live(conn, ~p"/themes/quill/payment-processing/#{meeting.id}?session_id=cs_SAVED")
+
+    assert html =~ "Booking confirmed"
+    refute html =~ "Confirming your payment"
+  end
+
+  test "flips to confirmation UI when broadcast says card_saved", %{conn: conn, user: user} do
+    meeting = insert(:meeting, organizer_user_id: user.id, status: "awaiting_card")
+
+    bp =
+      insert(:booking_payment,
+        meeting: meeting,
+        host_user_id: user.id,
+        status: "setup_pending",
+        payment_timing: "deferred",
+        service_snapshot: %{
+          "service_id" => "online-consultation",
+          "amount_cents" => 14_000,
+          "currency" => "usd"
+        },
+        stripe_checkout_session_id: "cs_DEFERRED"
+      )
+
+    {:ok, view, html} =
+      live(conn, ~p"/themes/quill/payment-processing/#{meeting.id}?session_id=cs_DEFERRED")
+
+    assert html =~ "Confirming your payment"
+
+    {:ok, _bp} = BookingPaymentQueries.update(bp, %{status: "card_saved"})
+    PubSub.broadcast(Tymeslot.PubSub, "meeting_payment:#{meeting.id}", :card_saved)
+
+    assert render(view) =~ "Booking confirmed"
+  end
+
   test "flips to confirmation UI when broadcast says paid", %{conn: conn, user: user} do
     meeting = insert(:meeting, organizer_user_id: user.id, status: "awaiting_payment")
 
