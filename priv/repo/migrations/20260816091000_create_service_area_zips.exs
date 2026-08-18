@@ -1,6 +1,11 @@
 defmodule Tymeslot.Repo.Migrations.CreateServiceAreaZips do
   use Ecto.Migration
 
+  # excellent_migrations:safety-assured-for-this-file column_reference_added
+  # excellent_migrations:safety-assured-for-this-file index_not_concurrently
+  # Brand-new empty tables. Foreign keys and indexes cannot rewrite existing
+  # rows.
+
   def change do
     create table(:service_area_zips) do
       add(:owner_user_id, references(:users, on_delete: :delete_all), null: false)

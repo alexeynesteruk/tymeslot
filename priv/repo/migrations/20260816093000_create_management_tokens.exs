@@ -1,6 +1,10 @@
 defmodule Tymeslot.Repo.Migrations.CreateManagementTokens do
   use Ecto.Migration
 
+  # excellent_migrations:safety-assured-for-this-file column_reference_added
+  # excellent_migrations:safety-assured-for-this-file index_not_concurrently
+  # Brand-new empty token table.
+
   def change do
     create table(:management_tokens, primary_key: false) do
       add(:id, :binary_id, primary_key: true)

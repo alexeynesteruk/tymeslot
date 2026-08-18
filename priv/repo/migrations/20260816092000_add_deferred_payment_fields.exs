@@ -1,6 +1,13 @@
 defmodule Tymeslot.Repo.Migrations.AddDeferredPaymentFields do
   use Ecto.Migration
 
+  # excellent_migrations:safety-assured-for-this-file index_not_concurrently
+  # excellent_migrations:safety-assured-for-this-file check_constraint_added
+  # excellent_migrations:safety-assured-for-this-file not_null_added
+  # excellent_migrations:safety-assured-for-this-file column_added_with_default
+  # New columns use defaults (`upfront`, `{}`, `0`). Partial unique indexes
+  # apply only to newly added Stripe identity columns.
+
   def change do
     alter table(:meeting_types) do
       add(:payment_timing, :string)

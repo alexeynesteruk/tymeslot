@@ -1,6 +1,13 @@
 defmodule Tymeslot.Repo.Migrations.AddMypawtrainerServiceFields do
   use Ecto.Migration
 
+  # excellent_migrations:safety-assured-for-this-file index_not_concurrently
+  # excellent_migrations:safety-assured-for-this-file check_constraint_added
+  # excellent_migrations:safety-assured-for-this-file not_null_added
+  # excellent_migrations:safety-assured-for-this-file column_added_with_default
+  # New nullable service columns and a JSON snapshot defaulted to {}. The
+  # unique index and checks apply only to newly added MPT columns.
+
   def change do
     alter table(:meeting_types) do
       add(:service_id, :string)

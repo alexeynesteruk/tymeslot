@@ -1,6 +1,10 @@
 defmodule Tymeslot.Repo.Migrations.CreateProcessedStripeEvents do
   use Ecto.Migration
 
+  # excellent_migrations:safety-assured-for-this-file index_not_concurrently
+  # excellent_migrations:safety-assured-for-this-file check_constraint_added
+  # Brand-new empty ledger table.
+
   def change do
     create table(:processed_stripe_events, primary_key: false) do
       add(:id, :binary_id, primary_key: true)
