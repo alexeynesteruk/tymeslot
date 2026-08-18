@@ -238,19 +238,34 @@ direct services with fake Stripe and a fake Google provider: setup-mode
 Checkout, zero immediate charge, immutable $49/$140/$190 snapshots, ZIP only
 for in-home, Google busy rejection, and payment-free follow-up.
 
-One private host probe of `$140` online consultation used live Stripe test
-Checkout in setup mode. Snapshot was `$140`. Checkout `payment_status` was
-`no_payment_required` and no PaymentIntent or charge existed. The event type
-was deactivated afterward; `EventRoutes.resolve/2` returns `:unavailable`.
-Checkout SetupIntents cannot be confirmed from the API, so card-save,
-calendar write, manual charge, recovery, and refund were not exercised.
-The probe meeting was cancelled and the Checkout session expired. Website
-booking URLs stayed unset.
+A second private `$140` online-consultation probe completed live Stripe
+test Checkout with card `4242`. Checkout mode was `setup`,
+`payment_status=no_payment_required`, livemode false, amount total null.
+The existing platform webhooks did not receive connected-account events.
+A test-mode Connect endpoint `we_1U5n8eI86BemGfry3MOtOqSl` was created
+for `/webhooks/stripe/connect` and `STRIPE_CONNECT_WEBHOOK_SECRET` was
+rotated. After `docker compose up -d` (restart does not reload env),
+Stripe replay of `setup_intent.succeeded` returned HTTP 200.
+
+Resulting booking `c1e98935-42a5-4d5a-a9d6-157d8fc2b9e1`: meeting
+`confirmed` then owner-completed, payment `card_saved` at `$140`, no
+PaymentIntent or charge, Google Calendar event
+`c9175467bd2a4e48b8ef971d0b9ec5c3` written, follow-up entitlement
+created for 2026-08-26 through 2026-09-01. Event type deactivated;
+`EventRoutes.resolve/2` is `:unavailable`. Website booking URLs stayed
+unset.
+
+Gaps found on the live path:
+
+- Checkout setup created a payment method but no Stripe Customer, so
+  `ManualCharges.reserve/2` returned `:missing_stripe_customer`.
+- The Quill return page only treats `payment.status == "paid"` / PubSub
+  `:paid` as success, so it stayed on "Confirming your payment…".
 
 | Service | Setup charge | Confirmation | Calendar | Manual charge | Recovery | Refund |
 | --- | --- | --- | --- | --- | --- | --- |
 | discovery-call $49 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
-| online-consultation $140 | live Stripe test Checkout, $0 | setup_pending only | not written | not on host | not on host | not on host |
+| online-consultation $140 | live Stripe test Checkout, $0 | card_saved; return page still spinning | Google event written | blocked: no customer | not on host | not on host |
 | in-home-consultation $190 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
 
 ### Backup, restore, rollback
@@ -274,14 +289,16 @@ booking URLs stayed unset.
 ## Next safe action
 
 Do not activate production booking. Website booking URLs stay off. Remaining
-Task 16 gaps are credo --strict (upstream), a completed live Checkout card
-save against the connected Google Calendar, and image rollback. Do not start
-Task 17. Do not treat the current host image as a customer launch.
+Task 16 gaps are credo --strict (upstream), creating a Stripe Customer during
+setup so manual charge can run, the deferred confirmation page, and image
+rollback. Do not start Task 17. Do not treat the current host image as a
+customer launch.
 
 ## Production blockers
 
-- Task 16 is not accepted. Credo `--strict` remains red. Live Checkout
-  card-save, calendar write, charge, recovery, and refund have not run.
+- Task 16 is not accepted. Credo `--strict` remains red. Live `$140`
+  card-save and Google Calendar write succeeded. Manual charge is blocked
+  by a missing Stripe Customer. Recovery and refund have not run.
 - Price and minimum booking projection events have transactional outbox and
   signed delivery locally. CRM delivery remains disabled.
 - Anna supplied bookable hours 09:00-20:00 America/New_York, applied to all
