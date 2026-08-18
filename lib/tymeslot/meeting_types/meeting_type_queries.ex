@@ -161,48 +161,43 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeQueries do
   def update_service_price(id, user_id, expected_version, price_cents)
       when is_integer(id) and is_integer(user_id) and is_integer(expected_version) and
              is_integer(price_cents) do
-    Repo.transaction(fn ->
-      query =
-        from(mt in MeetingTypeSchema,
-          where: mt.id == ^id and mt.user_id == ^user_id and mt.is_active == true,
-          lock: "FOR UPDATE"
-        )
-
-      with %MeetingTypeSchema{} = meeting_type <- Repo.one(query),
-           :ok <- validate_service_price_update(meeting_type, expected_version, price_cents),
-           {:ok, updated} <-
-             meeting_type
-             |> Ecto.Changeset.change(
-               service_price_cents: price_cents,
-               event_type_version: expected_version + 1
-             )
-             |> Repo.update() do
-        updated
-      else
-        nil -> Repo.rollback(:not_found)
-        {:error, reason} when is_atom(reason) -> Repo.rollback(reason)
-        {:error, changeset} -> Repo.rollback(changeset)
-      end
-    end)
+    case Tymeslot.MyPawTrainer.PriceProjection.publish(
+           id,
+           user_id,
+           expected_version,
+           price_cents,
+           "usd"
+         ) do
+      {:ok, updated, _event} -> {:ok, updated}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   def update_service_price(_id, _user_id, _expected_version, _price_cents),
     do: {:error, :invalid_request}
 
-  defp validate_service_price_update(meeting_type, expected_version, price_cents) do
-    cond do
-      not Tymeslot.MyPawTrainer.ServiceCatalog.direct_bookable?(meeting_type.service_id) ->
-        {:error, :not_direct_service}
+  @doc false
+  def lock_service_price(id, user_id) do
+    query =
+      from(mt in MeetingTypeSchema,
+        where: mt.id == ^id and mt.user_id == ^user_id,
+        lock: "FOR UPDATE"
+      )
 
-      meeting_type.event_type_version != expected_version ->
-        {:error, :stale_version}
-
-      price_cents <= 0 ->
-        {:error, :invalid_price}
-
-      true ->
-        :ok
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      meeting_type -> {:ok, meeting_type}
     end
+  end
+
+  @doc false
+  def persist_service_price(meeting_type, price_cents, version) do
+    meeting_type
+    |> MeetingTypeSchema.service_price_changeset(%{
+      service_price_cents: price_cents,
+      event_type_version: version
+    })
+    |> Repo.update()
   end
 
   defp validate_service_configuration(meeting_type, requested_duration) do

@@ -593,6 +593,12 @@ config :tymeslot,
 config :tymeslot, registration_enabled: System.get_env("REGISTRATION_ENABLED", "true") == "true"
 config :tymeslot, password_auth_enabled: System.get_env("PASSWORD_AUTH_ENABLED", "true") == "true"
 
+# Projection delivery is implemented separately. Keep it disabled until its
+# authenticated VM 1 destination and release gate are configured.
+config :tymeslot,
+       :price_projection_delivery_enabled,
+       System.get_env("PRICE_PROJECTION_DELIVERY_ENABLED", "false") == "true"
+
 # Social Authentication Configuration
 # These environment variables control whether social login is enabled
 #

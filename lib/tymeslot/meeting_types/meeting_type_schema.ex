@@ -289,6 +289,16 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     cast(meeting_type, attrs, [:is_private])
   end
 
+  @doc "Focused future-price update used only by the versioned projection operation."
+  @spec service_price_changeset(t(), map()) :: Ecto.Changeset.t()
+  def service_price_changeset(meeting_type, attrs) do
+    meeting_type
+    |> cast(attrs, [:service_price_cents, :event_type_version])
+    |> validate_required([:service_price_cents, :event_type_version])
+    |> validate_number(:service_price_cents, greater_than: 0)
+    |> validate_number(:event_type_version, greater_than: 0)
+  end
+
   @doc """
   Focused changeset for setting/clearing the custom booking slug, without
   re-validating unrelated fields. Applies the same normalisation, format rules

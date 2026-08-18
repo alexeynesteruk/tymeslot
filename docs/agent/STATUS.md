@@ -7,7 +7,7 @@ Updated: 2026-08-17
 - Local checkout: `/Users/anesteruk/Documents/tymeslot`
 - Fork remote: `git@github.com:alexeynesteruk/tymeslot.git`
 - Upstream remote: `git@github.com:Tymeslot/tymeslot.git`
-- Branch: `feat/mpt-deferred-payments`
+- Branch: `feat/mpt-task7`
 - `origin/main`: `eab8ea89` (Tasks 1-5 merged)
 - Git SSH identity: `/Users/anesteruk/.ssh/mypawtrainer.com`
 
@@ -94,6 +94,15 @@ both remotes were fetched instead of creating a duplicate clone.
   setup or payment row. `follow-up` remains outside the public six-service
   catalog and normal booking routes. Production booking stays off. Event types
   remain inactive. No ZIPs are seeded. Next implementation task is Task 10.
+- Task 10 transactional price projections and stable event routes: implemented
+  locally on 2026-08-17. Direct-price edits lock and version the future event
+  type and append one allowlisted `service.price_published.v1` row in the same
+  PostgreSQL transaction. Reviewed outbox queries claim with `SKIP LOCKED`,
+  deliver, retry with sanitized codes, and dead-letter. Stable `/anna/...`
+  routes exist only for the three direct services and resolve unavailable while
+  their event types are inactive. No HTTP delivery worker was added. Production
+  booking stays off, event types remain inactive, and no ZIPs are seeded. Next
+  implementation task is Task 11 signed VM 1 price-projection delivery.
 - Deployment assets: not started.
 - Production booking activation: prohibited at this stage.
 
@@ -135,15 +144,16 @@ complete gate has not been re-run in this change.
 
 ## Next safe action
 
-Task 9 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
+Task 10 is complete locally on `feat/mpt-task7` and is not deployed. The Task 6
 SHA remains loopback-only on VM 2. `book.mypawtrainer.com` has DNS and TLS. A
 local encrypted PostgreSQL backup and a disposable restore rehearsal both
 exist. Do not activate production booking or seed ZIPs. Next product work is
-Task 10 transactional projections. Website booking URLs stay off.
+Task 11 signed VM 1 price-projection delivery. Website booking URLs stay off.
 
 ## Production blockers
 
-- Transactional price and CRM projection workflows are not implemented.
+- Price events have a transactional outbox, but signed VM 1 delivery and CRM
+  projection producers and delivery are not implemented.
 - Concurrency, webhook, security, and browser gates have not run.
 - ARM64 deployment, backups, restore, monitoring, and rollback are not verified.
 - Anna has not supplied all production booking and authorization values.
