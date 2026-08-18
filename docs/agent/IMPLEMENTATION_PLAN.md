@@ -15,7 +15,8 @@ Use TDD and signed commits. The detailed approved plan is
 5. Add private rescheduling, included follow-up, signed price projections, and
    minimum asynchronous CRM projection. Done locally; delivery stays disabled.
 6. Add operations, recovery, and test-mode acceptance before activation.
-   Started. Production-disabled image `tymeslot:1eb79b11` is on VM 2. Task 16
+   Started. Host image `tymeslot:1aaed043` is on VM 2 with four-screen
+   intake and public test-mode booking. Task 16
    is not accepted. Remaining, in order:
    1. Leave `mix credo --strict` as residual upstream debt.
    2. Private Stripe test-mode recovery. Done: `charge_failed` plus

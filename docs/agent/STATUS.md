@@ -202,10 +202,11 @@ publishes `book.mypawtrainer.com` over HTTPS. The process runs as `app`.
 `REGISTRATION_ENABLED`, `ENABLE_GOOGLE_AUTH`,
 `PRICE_PROJECTION_DELIVERY_ENABLED`, and `CRM_PROJECTION_DELIVERY_ENABLED`
 are `false`. `MEETING_PAYMENTS_ENABLED` is `true` for Stripe test-mode
-only. Event types stay inactive. Approved ZIPs `32095`, `32259`, and
-`32258` are seeded. Google Calendar is connected for owner 1. Public
-booking and EspoCRM remain off. A scheduler NSG, reserved public IP, and
-independent console fingerprint confirmation are still outstanding.
+only. Direct event types are active and public in Stripe test mode.
+Approved ZIPs `32095`, `32259`, and `32258` are seeded. Google Calendar
+is connected for owner 1. EspoCRM remains off. A scheduler NSG, reserved
+public IP, and independent console fingerprint confirmation are still
+outstanding.
 
 ## Toolchain checkpoint
 
@@ -217,7 +218,8 @@ with explicit Homebrew paths. Formatting and `git diff --check` pass.
 Code-quality gate was run on 2026-08-18 from
 `/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7` at `5348c106`.
 Later commits `1eb79b11` and `6259eba6` added the customer-heal fix and
-deploy evidence. Host image is `tymeslot:1eb79b11`.
+deploy evidence. That gate ran on `tymeslot:1eb79b11`. The current host
+image is `tymeslot:1aaed043`.
 
 | Command | Result |
 | --- | --- |
