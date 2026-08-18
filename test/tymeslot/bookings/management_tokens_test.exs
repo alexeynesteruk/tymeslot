@@ -63,6 +63,29 @@ defmodule Tymeslot.Bookings.ManagementTokensTest do
              ManagementTokens.resolve(raw_token, now: DateTime.add(token.expires_at, 1, :second))
   end
 
+  test "rechecks the owner deadline after a token is issued" do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    meeting = direct_meeting(start_time: DateTime.add(now, 7, :day))
+    configure_deadline(meeting.organizer_user_id, 24)
+
+    assert {:ok, raw_token, token} = ManagementTokens.issue(meeting)
+    assert DateTime.compare(token.expires_at, now) == :gt
+
+    Application.delete_env(:tymeslot, :mypawtrainer_reschedule_deadlines)
+
+    assert {:error, :invalid_management_link} = ManagementTokens.resolve(raw_token, now: now)
+    assert {:error, :invalid_management_link} = ManagementTokens.consume_and_rotate(raw_token)
+
+    configure_deadline(meeting.organizer_user_id, 24)
+    assert {:ok, raw_token, token} = ManagementTokens.issue(meeting)
+    assert DateTime.compare(token.expires_at, now) == :gt
+
+    configure_deadline(meeting.organizer_user_id, 24 * 8)
+
+    assert {:error, :invalid_management_link} = ManagementTokens.resolve(raw_token, now: now)
+    assert {:error, :invalid_management_link} = ManagementTokens.consume_and_rotate(raw_token)
+  end
+
   test "consuming a token rotates it and the old token cannot be reused" do
     meeting = direct_meeting()
     configure_deadline(meeting.organizer_user_id, 24)

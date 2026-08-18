@@ -129,10 +129,15 @@ defmodule Tymeslot.Bookings.ManagementTokens do
 
   defp validate(%{meeting: meeting} = token, now) do
     valid =
-      is_nil(token.consumed_at) and
-        DateTime.compare(token.expires_at, now) == :gt and
-        ServiceCatalog.direct_bookable?(get_in(meeting.service_snapshot, ["service_id"])) and
-        Plug.Crypto.secure_compare(token.attendee_hash, attendee_hash(meeting.attendee_email))
+      with {:ok, configured_deadline} <- expiry_for(meeting) do
+        is_nil(token.consumed_at) and
+          DateTime.compare(token.expires_at, now) == :gt and
+          DateTime.compare(configured_deadline, now) == :gt and
+          ServiceCatalog.direct_bookable?(get_in(meeting.service_snapshot, ["service_id"])) and
+          Plug.Crypto.secure_compare(token.attendee_hash, attendee_hash(meeting.attendee_email))
+      else
+        {:error, :deadline_not_configured} -> false
+      end
 
     if valid, do: {:ok, meeting, token}, else: invalid(token)
   end
