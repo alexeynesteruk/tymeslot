@@ -91,11 +91,12 @@ defmodule TymeslotWeb.Dashboard.BookingsManagementTest do
       assert render(view) =~ "https://tymeslot.com/join/active"
     end
 
-    test "shows Completed badge for past meetings", %{conn: conn, user: user} do
+    test "shows Past appointment badge for confirmed past meetings", %{conn: conn, user: user} do
       insert(:past_meeting,
         organizer_user_id: user.id,
         organizer_email: user.email,
-        attendee_name: "Past Attendee"
+        attendee_name: "Past Attendee",
+        status: "confirmed"
       )
 
       {:ok, view, _html} = live(conn, ~p"/dashboard/meetings")
@@ -103,6 +104,23 @@ defmodule TymeslotWeb.Dashboard.BookingsManagementTest do
       view |> element("button", "Past") |> render_click()
 
       assert render(view) =~ "Past Attendee"
+      assert render(view) =~ "Past appointment"
+      refute render(view) =~ ~s(>Completed<)
+    end
+
+    test "shows Completed badge only after a meeting is completed", %{conn: conn, user: user} do
+      insert(:past_meeting,
+        organizer_user_id: user.id,
+        organizer_email: user.email,
+        attendee_name: "Completed Attendee",
+        status: "completed"
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/dashboard/meetings")
+
+      view |> element("button", "Past") |> render_click()
+
+      assert render(view) =~ "Completed Attendee"
       assert render(view) =~ "Completed"
     end
 

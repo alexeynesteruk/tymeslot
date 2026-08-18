@@ -19,7 +19,8 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.PaymentsTableTest do
         refunded_amount_cents: 0,
         currency: "eur",
         status: "paid",
-        paid_at: DateTime.utc_now()
+        paid_at: DateTime.utc_now(),
+        meeting: %{status: "completed"}
       },
       Map.new(attrs)
     )
@@ -86,6 +87,22 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.PaymentsTableTest do
       doc = Floki.parse_document!(render_table([payment(%{})], deleted_account()))
 
       assert [] = Floki.find(doc, "button[phx-click=open_refund_modal]")
+    end
+
+    test "shows Charge only after the associated meeting is completed" do
+      completed =
+        render_table([payment(%{status: "card_saved", paid_at: nil})], active_account())
+        |> Floki.parse_document!()
+
+      confirmed =
+        render_table(
+          [payment(%{status: "card_saved", paid_at: nil, meeting: %{status: "confirmed"}})],
+          active_account()
+        )
+        |> Floki.parse_document!()
+
+      assert [_button] = Floki.find(completed, "button[phx-click=open_charge_modal]")
+      assert [] = Floki.find(confirmed, "button[phx-click=open_charge_modal]")
     end
   end
 end

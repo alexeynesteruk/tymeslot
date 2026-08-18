@@ -62,7 +62,7 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.PaymentsTable do
                   {dgettext("dashboard_payments", "Refund")}
                 </button>
                 <button
-                  :if={p.status == "card_saved"}
+                  :if={chargeable?(p)}
                   type="button"
                   class="text-token-sm text-turquoise-700 font-semibold underline ml-3"
                   phx-click="open_charge_modal"
@@ -92,6 +92,9 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.PaymentsTable do
 
   defp connect_account_deleted?(%{deleted_at: %DateTime{}}), do: true
   defp connect_account_deleted?(_account), do: false
+
+  defp chargeable?(%{status: "card_saved", meeting: %{status: "completed"}}), do: true
+  defp chargeable?(_payment), do: false
 
   defp format_payment_date(inserted_at) do
     locale = Gettext.get_locale(TymeslotWeb.Gettext)

@@ -418,10 +418,7 @@ defmodule TymeslotWeb.Components.Dashboard.Meetings.MeetingListComponents do
       )}
     </span>
     <span
-      :if={
-        @meeting.status != "cancelled" and !MeetingState.awaiting_new_time?(@meeting) and
-          Helpers.past_meeting?(@meeting)
-      }
+      :if={@meeting.status == "completed" and !MeetingState.awaiting_new_time?(@meeting)}
       class="inline-flex items-center gap-1.5 px-3 py-1 bg-tymeslot-100 text-tymeslot-600 text-token-xs font-black uppercase tracking-wider rounded-full border border-tymeslot-200 shadow-sm"
     >
       <CoreComponents.icon name="hero-check" class="w-3 h-3" /> {dgettext(
@@ -431,8 +428,20 @@ defmodule TymeslotWeb.Components.Dashboard.Meetings.MeetingListComponents do
     </span>
     <span
       :if={
-        @meeting.status != "cancelled" and !MeetingState.awaiting_new_time?(@meeting) and
-          !Helpers.past_meeting?(@meeting)
+        @meeting.status != "cancelled" and @meeting.status != "completed" and
+          !MeetingState.awaiting_new_time?(@meeting) and Helpers.past_meeting?(@meeting)
+      }
+      class="inline-flex items-center gap-1.5 px-3 py-1 bg-tymeslot-100 text-tymeslot-600 text-token-xs font-black uppercase tracking-wider rounded-full border border-tymeslot-200 shadow-sm"
+    >
+      <CoreComponents.icon name="hero-clock" class="w-3 h-3" /> {dgettext(
+        "dashboard_bookings",
+        "Past appointment"
+      )}
+    </span>
+    <span
+      :if={
+        @meeting.status != "cancelled" and @meeting.status != "completed" and
+          !MeetingState.awaiting_new_time?(@meeting) and !Helpers.past_meeting?(@meeting)
       }
       class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-token-xs font-black uppercase tracking-wider rounded-full border border-emerald-100 shadow-sm"
     >
