@@ -29,10 +29,26 @@ defmodule Tymeslot.Contracts.DeploymentAssetsTest do
     assert workflow =~ "Dockerfile.mypawtrainer"
     assert workflow =~ "platforms: linux/arm64"
     assert workflow =~ ~S(tags: ghcr.io/alexeynesteruk/tymeslot:${{ github.sha }})
+    assert workflow =~ "workflow_dispatch:"
+    refute Regex.match?(~r/^on:\n  push:/m, workflow)
     refute Regex.match?(~r/tags:.*:latest/, workflow)
     refute workflow =~ "secrets."
     refute workflow =~ "ssh"
     refute workflow =~ "deploy"
+  end
+
+  test "verify workflow keeps the full suite behind an explicit verify choice" do
+    workflow = read!(".github/workflows/verify.yml")
+    makefile = read!("Makefile")
+
+    assert workflow =~ "workflow_dispatch:"
+    assert workflow =~ "- check"
+    assert workflow =~ "- verify"
+    assert workflow =~ "inputs.suite == 'verify'"
+    assert makefile =~ "Laptop:"
+    assert makefile =~ "GitHub:"
+    assert makefile =~ "Host:"
+    assert makefile =~ "make check"
   end
 
   test "platform interface documents runtime names and operational contracts without values" do

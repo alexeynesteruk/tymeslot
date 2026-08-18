@@ -1,9 +1,6 @@
 name: Build My Paw Trainer image
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:

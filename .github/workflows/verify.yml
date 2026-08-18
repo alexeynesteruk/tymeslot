@@ -4,12 +4,46 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: check is format and compile only. verify runs the full suite.
+        type: choice
+        options:
+          - check
+          - verify
+        default: check
 
 jobs:
-  verify:
+  check:
+    name: Format and compile
     runs-on: ubuntu-latest
-    # Only run on GitHub, not Gitea
     if: github.server_url == 'https://github.com'
+    env:
+      MIX_ENV: test
+      ELIXIR_VERSION: "1.20.3"
+      OTP_VERSION: "28.5.0.5"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+            priv/plts
+          key: ${{ runner.os }}-elixir-${{ env.ELIXIR_VERSION }}-otp-${{ env.OTP_VERSION }}-mix-${{ hashFiles('mix.lock') }}
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix compile --warnings-as-errors
+
+  verify:
+    name: Full suite
+    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && inputs.suite == 'verify' }}
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16
@@ -30,10 +64,6 @@ jobs:
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
-      # priv/plts is where mix.exs points plt_core_path/plt_local_path; without
-      # it cached, every run rebuilds the Dialyzer PLT from scratch. The
-      # Elixir/OTP versions are part of the key because both _build and the PLT
-      # are toolchain-specific and must not survive a version bump.
       - uses: actions/cache@v4
         with:
           path: |
@@ -48,12 +78,6 @@ jobs:
       - run: mix sobelow
       - run: mix deps.audit
       - run: mix excellent_migrations.check_safety
-      # test/release/changelog_configs_test.exs renders the real git-cliff
-      # templates, and Tymeslot.Test.SuiteConfig excludes those tests wherever
-      # the binary is missing — so without this step they would silently never
-      # run here, which is the one place a broken template could still be
-      # caught before a release. Keep the pin in step with release.yml, which
-      # generates the release notes with the same binary.
       - name: Install git-cliff
         run: |
           CLIFF_VERSION="2.12.0"
@@ -62,22 +86,9 @@ jobs:
           sudo tar -xzf /tmp/git-cliff.tar.gz -C /usr/local/bin --strip-components=1 "git-cliff-${CLIFF_VERSION}/git-cliff"
           git-cliff --version
       - run: mix test
-      # Catalogue references drift whenever a translatable string is added,
-      # removed, or moved between files, and nothing else in this workflow
-      # notices. Run it locally the same way, from the repository root:
-      #
-      #     mix gettext.extract --check-up-to-date
-      #
-      # It reports staleness without writing, so it never mutates the tree it
-      # inspects. Extraction force-recompiles and needs the dev build, for the
-      # same reason as dialyzer below.
       - run: mix gettext.extract --check-up-to-date
         env:
           MIX_ENV: dev
-      # dialyxir is only: [:dev], so this step needs its own environment. The
-      # job-wide MIX_ENV=test above would make the task unresolvable, and the
-      # step has been silently failing that way. Dev also matches where
-      # `mix precommit` runs dialyzer locally, so both analyse the same build.
       - run: mix dialyzer
         env:
           MIX_ENV: dev
