@@ -11,13 +11,13 @@ Use TDD and signed commits. The detailed approved plan is
 3. Add service intake, ZIP eligibility, and fresh fail-closed booking guards.
    Done.
 4. Add Stripe setup mode, immutable payment snapshots, completion, and manual
-   charging. Done locally; payments stay disabled on the host.
+   charging. Done locally; host payments are Stripe test-mode only.
 5. Add private rescheduling, included follow-up, signed price projections, and
    minimum asynchronous CRM projection. Done locally; delivery stays disabled.
 6. Add operations, recovery, and test-mode acceptance before activation.
    Started. Production-disabled image `tymeslot:702c589f` is on VM 2. Task 16
-   is not accepted: credo --strict, gettext, excellent_migrations, Dialyzer,
-   and live Stripe/Google test-mode remain open. Do not start Task 17.
+   is not accepted: credo --strict remains red, and live Checkout card-save
+   plus charge/refund have not run. Do not start Task 17.
 
 ## Current Task 2 contract
 

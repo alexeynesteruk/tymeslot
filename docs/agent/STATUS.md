@@ -197,9 +197,11 @@ remains on the host for application rollback. `rpcbind` is masked,
 UFW/fail2ban/Docker/Nginx are active, and `GET /healthcheck` on
 `127.0.0.1:4000` returns HTTP 200 with database and Oban ok. Host Nginx
 publishes `book.mypawtrainer.com` over HTTPS. The process runs as `app`.
-`REGISTRATION_ENABLED`, `MEETING_PAYMENTS_ENABLED`, `ENABLE_GOOGLE_AUTH`,
+`REGISTRATION_ENABLED`, `ENABLE_GOOGLE_AUTH`,
 `PRICE_PROJECTION_DELIVERY_ENABLED`, and `CRM_PROJECTION_DELIVERY_ENABLED`
-are all `false`. Event types stay inactive. No ZIPs are seeded. Public
+are `false`. `MEETING_PAYMENTS_ENABLED` is `true` for Stripe test-mode
+only. Event types stay inactive. Approved ZIPs `32095`, `32259`, and
+`32258` are seeded. Google Calendar is connected for owner 1. Public
 booking and EspoCRM remain off. A scheduler NSG, reserved public IP, and
 independent console fingerprint confirmation are still outstanding.
 
@@ -210,22 +212,22 @@ with explicit Homebrew paths. Formatting and `git diff --check` pass.
 
 ## Task 16 gate
 
-Run on 2026-08-18 from
-`/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7` at `702c589f`
-plus the management-lookup test/spec alignment in this change.
+Re-run on 2026-08-18 from
+`/Users/anesteruk/Documents/tymeslot/.worktrees/mpt-task7` at `5348c106`.
+Host image remains `tymeslot:702c589f`.
 
 | Command | Result |
 | --- | --- |
 | `mix format --check-formatted` | pass |
 | `mix compile --warnings-as-errors` | pass |
-| `mix credo --strict` | fail, exit 31. Project `.credo.exs` has `strict: false`. Default `mix credo` also exits 31 (26 consistency, 6 warnings, 2 refactor, 7 readability, 102 design). Not cleaned in this task. |
+| `mix credo --strict` | fail, exit 31. Project `.credo.exs` has `strict: false`. Upstream design/consistency debt. Not cleaned in this task. |
 | `mix sobelow` | exit 0. Pre-existing medium-confidence `XSS.HTML` in `lib/tymeslot_web/controllers/dev/embed_test_controller.ex:45`. No MPT file involved. |
 | `mix deps.audit` | pass, no vulnerabilities found |
-| `mix excellent_migrations.check_safety` | fail, exit 1. MPT migrations after `start_after` lack `safety-assured` comments. SQL was not changed. |
-| `mix test --exclude mpt_concurrency` | 12487/12489 passed, 115 excluded. Failures: stale `validate_and_load_meeting/3` string call (fixed and re-run: 1 passed) and a flaky calendar subscription LiveView assertion that passed on rerun. |
-| same-slot + webhooks + refunds + retention + security | 82 passed, including the two-connection same-slot race |
-| `MIX_ENV=dev mix gettext.extract --check-up-to-date` | fail. Out of date: `booking.pot`, `dashboard_bookings.pot`, `dashboard_common.pot`, `dashboard_payments.pot`, `emails.pot`. Not extracted in this task. |
-| `MIX_ENV=dev mix dialyzer` | fail, exit 2. After ignores: 10 remaining (card setup guards, calendar reconcile discard, CRM `backoff/1` not exported, payments rate-limit tuple, meeting-management spec/call). Spec now says `map()`; Dialyzer was not re-run after that one-line change. |
+| `mix excellent_migrations.check_safety` | pass after MPT safety-assured comments. SQL unchanged. |
+| `mix test --exclude mpt_concurrency` | 12490 passed, 115 excluded |
+| same-slot + webhooks + refunds + retention + security + payments rate-limit | 126 passed, including the two-connection same-slot race |
+| `MIX_ENV=dev mix gettext.extract --check-up-to-date` | pass |
+| `MIX_ENV=dev mix dialyzer` | pass. 81 ignored, 0 remaining |
 | `git diff --check` | pass |
 
 ### Test-mode acceptance
@@ -234,16 +236,21 @@ Automated ExUnit acceptance in `test/e2e/mypawtrainer_booking_acceptance_test.ex
 and `test/e2e/mypawtrainer_follow_up_acceptance_test.exs` covers the three
 direct services with fake Stripe and a fake Google provider: setup-mode
 Checkout, zero immediate charge, immutable $49/$140/$190 snapshots, ZIP only
-for in-home, Google busy rejection, and payment-free follow-up. That is not
-live Stripe test-mode or a real Google Calendar.
+for in-home, Google busy rejection, and payment-free follow-up.
 
-Live host acceptance is blocked: `MEETING_PAYMENTS_ENABLED=false`, no Stripe
-keys on VM 2, Google login off, event types inactive, no ZIPs seeded.
+One private host probe of `$140` online consultation used live Stripe test
+Checkout in setup mode. Snapshot was `$140`. Checkout `payment_status` was
+`no_payment_required` and no PaymentIntent or charge existed. The event type
+was deactivated afterward; `EventRoutes.resolve/2` returns `:unavailable`.
+Checkout SetupIntents cannot be confirmed from the API, so card-save,
+calendar write, manual charge, recovery, and refund were not exercised.
+The probe meeting was cancelled and the Checkout session expired. Website
+booking URLs stayed unset.
 
 | Service | Setup charge | Confirmation | Calendar | Manual charge | Recovery | Refund |
 | --- | --- | --- | --- | --- | --- | --- |
 | discovery-call $49 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
-| online-consultation $140 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
+| online-consultation $140 | live Stripe test Checkout, $0 | setup_pending only | not written | not on host | not on host | not on host |
 | in-home-consultation $190 | ExUnit only | ExUnit only | fake provider | not on host | not on host | not on host |
 
 ### Backup, restore, rollback
@@ -266,15 +273,15 @@ keys on VM 2, Google login off, event types inactive, no ZIPs seeded.
 
 ## Next safe action
 
-Do not activate production booking or seed ZIPs. Website booking URLs stay
-off. Close remaining Task 16 gaps (gettext POT, migration safety comments,
-Dialyzer, live Stripe test-mode) or collect Anna's Task 17 inputs. Do not
-treat the current host image as a customer launch.
+Do not activate production booking. Website booking URLs stay off. Remaining
+Task 16 gaps are credo --strict (upstream), a completed live Checkout card
+save against the connected Google Calendar, and image rollback. Do not start
+Task 17. Do not treat the current host image as a customer launch.
 
 ## Production blockers
 
-- Task 16 is not accepted. Credo strict, gettext, excellent_migrations, and
-  Dialyzer are red. Live Stripe/Google test-mode has not run.
+- Task 16 is not accepted. Credo `--strict` remains red. Live Checkout
+  card-save, calendar write, charge, recovery, and refund have not run.
 - Price and minimum booking projection events have transactional outbox and
   signed delivery locally. CRM delivery remains disabled.
 - Anna supplied bookable hours 09:00-20:00 America/New_York, applied to all
@@ -297,6 +304,7 @@ treat the current host image as a customer launch.
   Instagram decision, or admin recovery procedure.
 - Anna's scheduler user ID is not approved, so production provisioning
   remains blocked.
-- Live Google Calendar connect, Stripe Connect, SMTP/Resend, and webhooks
-  are not complete.
+- Google Calendar is connected for owner 1 with encrypted tokens. Google
+  login stays off. Live Stripe Connect onboarding and SMTP/Resend are not
+  complete.
 - Measured host thresholds and a live `--apply` restore remain outstanding.
